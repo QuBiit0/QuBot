@@ -1,0 +1,91 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background-color: #020617;
+  color: #f1f5f9;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  min-height: 100vh;
+}
+
+.bgSlate950 { background-color: #020617; }
+.bgSlate900 { background-color: #0f172a; }
+.bgSlate800 { background-color: #1e293b; }
+.bgBlue500 { background-color: #3b82f6; }
+.bgBlue600 { background-color: #2563eb; }
+.bgGreen500 { background-color: #22c55e; }
+.bgRed500 { background-color: #ef4444; }
+
+.textSlate100 { color: #f1f5f9; }
+.textSlate200 { color: #e2e8f0; }
+.textSlate300 { color: #cbd5e1; }
+.textSlate400 { color: #94a3b8; }
+.textBlue400 { color: #60a5fa; }
+.textBlue500 { color: #3b82f6; }
+.textGreen400 { color: #4ade80; }
+.textWhite { color: #ffffff; }
+
+.minHScreen { min-height: 100vh; }
+.wFull { width: 100%; }
+.hFull { height: 100%; }
+.flex { display: flex; }
+.grid { display: grid; }
+.block { display: block; }
+.hidden { display: none; }
+.flexCol { flex-direction: column; }
+.flexRow { flex-direction: row; }
+.itemsCenter { align-items: center; }
+.justifyCenter { justify-content: center; }
+.justifyBetween { justify-content: space-between; }
+.gap2 { gap: 0.5rem; }
+.gap4 { gap: 1rem; }
+
+.p2 { padding: 0.5rem; }
+.p4 { padding: 1rem; }
+.p6 { padding: 1.5rem; }
+.px4 { padding-left: 1rem; padding-right: 1rem; }
+.py2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+.py4 { padding-top: 1rem; padding-bottom: 1rem; }
+
+.m0 { margin: 0; }
+.mb2 { margin-bottom: 0.5rem; }
+.mb4 { margin-bottom: 1rem; }
+.mt4 { margin-top: 1rem; }
+
+.textSm { font-size: 0.875rem; }
+.textBase { font-size: 1rem; }
+.textLg { font-size: 1.125rem; }
+.textXl { font-size: 1.25rem; }
+.text2xl { font-size: 1.5rem; }
+
+.fontMedium { font-weight: 500; }
+.fontSemibold { font-weight: 600; }
+.fontBold { font-weight: 700; }
+
+.rounded { border-radius: 0.25rem; }
+.roundedLg { border-radius: 0.5rem; }
+.roundedMd { border-radius: 0.375rem; }
+.roundedFull { border-radius: 9999px; }
+
+.border { border: 1px solid #1e293b; }
+.borderB { border-bottom: 1px solid #1e293b; }
+
+.overflowHidden { overflow: hidden; }
+.overflowAuto { overflow: auto; }
+
+.relative { position: relative; }
+.absolute { position: absolute; }
+.fixed { position: fixed; }
+
+.z10 { z-index: 10; }
+.z50 { z-index: 50; }
+
+.container {
+  width: 100%;
+  max-width: 1280px;
+  margin-left: auto;
+  margin-right: auto;
+}

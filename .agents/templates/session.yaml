@@ -1,0 +1,125 @@
+# Session State Template
+# LMAgent Framework v3.0 - Persistent Context System
+#
+# Este archivo mantiene el estado del proyecto para que el agente NUNCA
+# pierda el contexto, incluso en proyectos grandes con múltiples sesiones.
+#
+# UBICACIÓN: .lmagent/session.yaml (en el proyecto del usuario)
+#
+# 🤖 AGENTE: Lee este archivo AL INICIO de cada sesión de trabajo.
+#           Actualízalo DESPUÉS de cada milestone completado.
+
+---
+# ═══════════════════════════════════════════════════════════════════════════
+#                         ESTADO DEL PROYECTO
+# ═══════════════════════════════════════════════════════════════════════════
+
+project:
+  name: "[nombre del proyecto]"
+  created_at: "[YYYY-MM-DD]"
+  last_updated: "[YYYY-MM-DD HH:MM]"
+  current_phase: specify  # specify | plan | tasks | implement | verify | done
+
+# ═══════════════════════════════════════════════════════════════════════════
+#                         PROGRESO DEL SPEC WORKFLOW
+# ═══════════════════════════════════════════════════════════════════════════
+
+spec_workflow:
+  phase_1_specify:
+    status: pending  # pending | in_progress | review | approved | completed
+    artifact: null  # specs/[project]/spec.yaml
+    approved_at: null
+    approved_by: null
+    
+  phase_2_plan:
+    status: pending
+    artifact: null  # specs/[project]/plan.yaml
+    approved_at: null
+    approved_by: null
+    
+  phase_3_tasks:
+    status: pending
+    artifact: null  # specs/[project]/tasks.yaml
+    
+  phase_4_implement:
+    status: pending
+    current_task_id: null  # T001, T002, etc.
+    completed_tasks: []
+    blocked_tasks: []
+    
+  phase_5_verify:
+    status: pending
+    tests_passing: null
+    coverage: null
+    issues_found: []
+
+# ═══════════════════════════════════════════════════════════════════════════
+#                         CONTEXTO ACTUAL
+# ═══════════════════════════════════════════════════════════════════════════
+
+current_context:
+  # ¿Qué estaba haciendo el agente?
+  last_action: "[Descripción de la última acción]"
+  
+  # ¿En qué archivo estaba trabajando?
+  last_file: null
+  
+  # ¿Qué persona estaba activa?
+  active_persona: null  # /pm, /arch, /dev, /qa, etc.
+  
+  # ¿Hay algo pendiente de aprobación del usuario?
+  awaiting_user_input: false
+  pending_question: null
+
+# ═══════════════════════════════════════════════════════════════════════════
+#                         HISTORIAL DE SESIONES
+# ═══════════════════════════════════════════════════════════════════════════
+
+sessions:
+  - session_id: 1
+    started_at: "[timestamp]"
+    ended_at: "[timestamp]"
+    summary: "[Qué se logró en esta sesión]"
+    next_steps: "[Qué falta hacer]"
+
+# ═══════════════════════════════════════════════════════════════════════════
+#                         DECISIONES IMPORTANTES
+# ═══════════════════════════════════════════════════════════════════════════
+
+decisions:
+  - id: "D001"
+    date: "[YYYY-MM-DD]"
+    decision: "[Qué se decidió]"
+    rationale: "[Por qué]"
+    # Esto ayuda al agente a recordar decisiones pasadas
+
+# ═══════════════════════════════════════════════════════════════════════════
+#                         BLOQUEOS Y ISSUES
+# ═══════════════════════════════════════════════════════════════════════════
+
+blockers:
+  - id: "B001"
+    description: "[Descripción del bloqueo]"
+    status: open  # open | resolved
+    created_at: null
+    resolved_at: null
+
+# ═══════════════════════════════════════════════════════════════════════════
+#                    INSTRUCCIONES PARA EL AGENTE
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# 🤖 AGENTE: AL INICIO DE CADA SESIÓN:
+#
+# 1. Lee este archivo completo
+# 2. Identifica current_phase y current_context
+# 3. Resume desde donde quedaste
+# 4. Si awaiting_user_input es true, pregunta al usuario primero
+#
+# 🤖 AGENTE: AL FINALIZAR TRABAJO O CAMBIAR DE TAREA:
+#
+# 1. Actualiza current_context con tu última acción
+# 2. Actualiza el status de la fase actual
+# 3. Si completaste una task, agrégala a completed_tasks
+# 4. Guarda este archivo
+#
+# ═══════════════════════════════════════════════════════════════════════════

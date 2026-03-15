@@ -1,0 +1,330 @@
+# Tasks Template (SPEC DRIVEN Development)
+# LMAgent Framework v3.0 - SPEC+LM Methodology
+#
+# This template breaks down a plan.yaml into executable tasks.
+# Each task is assigned to a persona and can be executed in parallel.
+# Use with `/dev` persona.
+#
+# Usage:
+#   1. Requires: specs/[feature-name]/plan.yaml (approved)
+#   2. Copy to: specs/[feature-name]/tasks.yaml
+#   3. Execute tasks in dependency order
+
+---
+metadata:
+  title: "Tasks: [Feature Name]"
+  spec_reference: "specs/[feature-name]/spec.yaml"
+  plan_reference: "specs/[feature-name]/plan.yaml"
+  version: "1.0"
+  author: "[Dev Name or Agent ID]"
+  created: "[YYYY-MM-DD]"
+  status: in_progress  # pending | in_progress | completed
+
+# ============================================
+# TASK SUMMARY
+# ============================================
+
+summary:
+  total_tasks: 0
+  completed_tasks: 0
+  in_progress_tasks: 0
+  blocked_tasks: 0
+  estimated_hours: 0
+  actual_hours: 0
+
+# ============================================
+# PHASE 1: [Foundation & Setup]
+# ============================================
+
+phase_1:
+  name: "Foundation & Setup"
+  status: pending  # pending | in_progress | completed
+  started_at: null
+  completed_at: null
+  
+  tasks:
+    - id: "T001"
+      title: "[Create project structure]"
+      description: |
+        [Detailed description of what needs to be done.
+        Include specific files to create, patterns to follow,
+        and expected outcomes.]
+      persona: "/dev"
+      priority: 1
+      estimated_hours: 0.5
+      actual_hours: null
+      status: pending  # pending | in_progress | completed | blocked
+      
+      # Files this task will create/modify
+      file_operations:
+        create:
+          - "path/to/new/file.py"
+          - "path/to/another/file.py"
+        modify:
+          - "path/to/existing/file.py"
+        delete: []
+      
+      # Dependencies
+      dependencies: []
+      blocks: ["T002", "T003"]
+      
+      # Acceptance criteria (from spec)
+      acceptance_criteria:
+        - "[ ] [Criterion 1]"
+        - "[ ] [Criterion 2]"
+      
+      # Commands to run
+      commands:
+        setup: []
+        validate:
+          - "pytest tests/test_structure.py -v"
+      
+      # Notes for the implementing agent
+      implementation_notes: |
+        - Use the standard project template
+        - Follow code-style.md guidelines
+        - Reference: rules/stack.md
+      
+      # Completion tracking
+      started_at: null
+      completed_at: null
+      completed_by: null
+      
+    - id: "T002"
+      title: "[Set up database]"
+      description: "[Create migrations, seed data]"
+      persona: "/dev"
+      priority: 1
+      estimated_hours: 1.0
+      status: pending
+      dependencies: ["T001"]
+      blocks: ["T004"]
+      file_operations:
+        create:
+          - "migrations/001_initial.sql"
+        modify: []
+        delete: []
+      acceptance_criteria:
+        - "[ ] Migrations run without errors"
+        - "[ ] Schema matches design"
+      commands:
+        validate:
+          - "alembic upgrade head"
+          - "alembic check"
+
+# ============================================
+# PHASE 2: [Core Logic]
+# ============================================
+
+phase_2:
+  name: "Core Logic"
+  status: pending
+  depends_on_phases: [1]
+  
+  tasks:
+    - id: "T003"
+      title: "[Implement service layer]"
+      description: "[Business logic implementation]"
+      persona: "/dev"
+      priority: 1
+      estimated_hours: 3.0
+      status: pending
+      dependencies: ["T001"]
+      blocks: ["T005"]
+      
+      # TDD approach
+      tdd:
+        test_first: true
+        test_file: "tests/unit/test_service.py"
+        test_cases:
+          - "test_create_entity"
+          - "test_read_entity"
+          - "test_update_entity"
+          - "test_delete_entity"
+          - "test_validation_errors"
+      
+      file_operations:
+        create:
+          - "src/services/entity_service.py"
+          - "tests/unit/test_service.py"
+        modify: []
+      
+      acceptance_criteria:
+        - "[ ] All CRUD operations work"
+        - "[ ] Validation errors handled"
+        - "[ ] Unit tests passing"
+        - "[ ] Coverage >80%"
+      
+      commands:
+        validate:
+          - "pytest tests/unit/ -v --cov=src/services"
+          - "ruff check src/services/"
+
+# ============================================
+# PHASE 3: [API Layer]
+# ============================================
+
+phase_3:
+  name: "API Layer"
+  status: pending
+  depends_on_phases: [2]
+  
+  # Parallel execution group
+  parallel_execution:
+    enabled: true
+    groups:
+      - name: "Endpoints"
+        tasks: ["T004", "T005"]
+        rationale: "Independent endpoints"
+      - name: "Supporting"
+        tasks: ["T006"]
+        can_run_with: ["Endpoints"]
+  
+  tasks:
+    - id: "T004"
+      title: "[Create REST endpoints]"
+      description: "[FastAPI/NestJS endpoints]"
+      persona: "/dev"
+      priority: 1
+      estimated_hours: 2.0
+      status: pending
+      dependencies: ["T002", "T003"]
+      
+      file_operations:
+        create:
+          - "src/routers/entity.py"
+          - "tests/integration/test_api.py"
+      
+      acceptance_criteria:
+        - "[ ] GET /entities works"
+        - "[ ] POST /entities works"
+        - "[ ] PUT /entities/{id} works"
+        - "[ ] DELETE /entities/{id} works"
+        - "[ ] OpenAPI schema generated"
+      
+      commands:
+        validate:
+          - "pytest tests/integration/ -v"
+          - "curl http://localhost:8000/docs"
+          
+    - id: "T005"
+      title: "[Add authentication]"
+      description: "[JWT/OAuth middleware]"
+      persona: "/dev"
+      priority: 2
+      estimated_hours: 1.5
+      status: pending
+      dependencies: ["T003"]
+      
+      security_considerations:
+        - "Use bcrypt for password hashing"
+        - "JWT expiry: 15 minutes"
+        - "Refresh token rotation"
+      
+      acceptance_criteria:
+        - "[ ] Login endpoint works"
+        - "[ ] Protected routes require auth"
+        - "[ ] Tokens expire correctly"
+        
+    - id: "T006"
+      title: "[Generate API documentation]"
+      description: "[Swagger/OpenAPI docs]"
+      persona: "/dev"
+      priority: 3
+      estimated_hours: 0.5
+      status: pending
+      dependencies: ["T004"]
+      
+      acceptance_criteria:
+        - "[ ] /docs endpoint available"
+        - "[ ] All endpoints documented"
+        - "[ ] Examples provided"
+
+# ============================================
+# PHASE 4: [Testing & Polish]
+# ============================================
+
+phase_4:
+  name: "Testing & Polish"
+  status: pending
+  depends_on_phases: [2, 3]
+  
+  tasks:
+    - id: "T007"
+      title: "[E2E tests]"
+      description: "[Full flow testing]"
+      persona: "/qa"
+      priority: 1
+      estimated_hours: 2.0
+      status: pending
+      dependencies: ["T004", "T005"]
+      
+      test_scenarios:
+        - scenario: "Happy path"
+          steps:
+            - "Create user"
+            - "Login"
+            - "Create entity"
+            - "Read entity"
+            - "Delete entity"
+            - "Logout"
+          expected: "All operations succeed"
+          
+        - scenario: "Error path"
+          steps:
+            - "Try invalid login"
+            - "Try unauthorized access"
+            - "Try invalid data"
+          expected: "Appropriate errors returned"
+      
+      acceptance_criteria:
+        - "[ ] Happy path passes"
+        - "[ ] Error paths handled"
+        - "[ ] Performance acceptable"
+        
+    - id: "T008"
+      title: "[Code review & refactor]"
+      description: "[Final polish]"
+      persona: "/lead"
+      priority: 2
+      estimated_hours: 1.0
+      status: pending
+      dependencies: ["T007"]
+      
+      review_checklist:
+        - "[ ] No TODO comments left"
+        - "[ ] No hardcoded values"
+        - "[ ] Consistent naming"
+        - "[ ] Proper error handling"
+        - "[ ] Security best practices"
+      
+      acceptance_criteria:
+        - "[ ] Linting passes"
+        - "[ ] Type checking passes"
+        - "[ ] Security scan passes"
+
+# ============================================
+# EXECUTION LOGS
+# ============================================
+
+execution_log:
+  - timestamp: null
+    task_id: null
+    action: null
+    agent: null
+    result: null
+    notes: null
+
+# ============================================
+# BLOCKERS & ISSUES
+# ============================================
+
+blockers:
+  - id: "B001"
+    task_id: null
+    description: null
+    severity: null  # critical | major | minor
+    status: null  # open | resolved | wontfix
+    resolution: null
+    created_at: null
+    resolved_at: null

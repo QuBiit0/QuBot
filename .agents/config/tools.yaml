@@ -1,0 +1,437 @@
+# LMAgent Tool Registry
+# Configuración declarativa de herramientas disponibles para agentes
+# Inspirado en SWE-agent tool system
+
+version: "3.6.0"
+
+# Configuración global de tools
+settings:
+  default_timeout: 30
+  max_retries: 3
+  sandbox_enabled: true
+  cost_tracking: true
+  trajectory_logging: true
+
+# Registro de herramientas
+tools:
+  # ============================================
+  # HTTP & API Tools
+  # ============================================
+  http_request:
+    name: "HTTP Request"
+    module: "lmagent.tools.http_tool"
+    class: "HttpTool"
+    description: "Realiza requests HTTP a APIs externas"
+    category: "network"
+    parameters:
+      - name: url
+        type: string
+        required: true
+        description: "URL completa del endpoint"
+      - name: method
+        type: string
+        enum: [GET, POST, PUT, PATCH, DELETE]
+        default: "GET"
+      - name: headers
+        type: object
+        required: false
+        description: "Headers HTTP adicionales"
+      - name: body
+        type: object
+        required: false
+        description: "Body del request (para POST/PUT/PATCH)"
+      - name: timeout
+        type: integer
+        default: 30
+        description: "Timeout en segundos"
+    returns:
+      type: object
+      properties:
+        status_code: integer
+        headers: object
+        body: any
+
+  # ============================================
+  # Database Tools
+  # ============================================
+  database_query:
+    name: "Database Query"
+    module: "lmagent.tools.database_tool"
+    class: "DatabaseTool"
+    description: "Ejecuta queries en PostgreSQL"
+    category: "database"
+    parameters:
+      - name: query
+        type: string
+        required: true
+        description: "Query SQL a ejecutar"
+      - name: params
+        type: array
+        required: false
+        description: "Parámetros para query parametrizada"
+      - name: fetch
+        type: string
+        enum: [all, one, none]
+        default: "all"
+        description: "Tipo de fetch para resultados"
+    requires:
+      - DATABASE_URL
+    security:
+      - "Solo queries SELECT permitidas por defecto"
+      - "Queries de modificación requieren confirmación"
+    returns:
+      type: array
+      items: object
+
+  database_schema:
+    name: "Database Schema"
+    module: "lmagent.tools.database_tool"
+    class: "DatabaseSchemaTool"
+    description: "Obtiene información del schema de la base de datos"
+    category: "database"
+    parameters:
+      - name: table
+        type: string
+        required: false
+        description: "Nombre de tabla específica (opcional)"
+    requires:
+      - DATABASE_URL
+    returns:
+      type: object
+
+  # ============================================
+  # Cache & State Tools
+  # ============================================
+  redis_cache:
+    name: "Redis Cache"
+    module: "lmagent.tools.redis_tool"
+    class: "RedisTool"
+    description: "Operaciones de cache y estado rápido en Redis"
+    category: "cache"
+    parameters:
+      - name: operation
+        type: string
+        enum: [get, set, delete, expire, exists, keys]
+        required: true
+      - name: key
+        type: string
+        required: true
+        description: "Clave Redis"
+      - name: value
+        type: any
+        required: false
+        description: "Valor para operación SET"
+      - name: ttl
+        type: integer
+        required: false
+        description: "TTL en segundos para SET/EXPIRE"
+    requires:
+      - REDIS_URL
+    returns:
+      type: any
+
+  # ============================================
+  # GitHub Tools
+  # ============================================
+  github_issue:
+    name: "GitHub Issue"
+    module: "lmagent.tools.github_tool"
+    class: "GitHubIssueTool"
+    description: "Interactúa con GitHub Issues"
+    category: "github"
+    parameters:
+      - name: action
+        type: string
+        enum: [get, list, create, update, close, comment]
+        required: true
+      - name: owner
+        type: string
+        required: true
+        description: "Owner del repositorio"
+      - name: repo
+        type: string
+        required: true
+        description: "Nombre del repositorio"
+      - name: issue_number
+        type: integer
+        required: false
+        description: "Número del issue (para get/update/close/comment)"
+      - name: title
+        type: string
+        required: false
+        description: "Título (para create)"
+      - name: body
+        type: string
+        required: false
+        description: "Contenido del issue o comentario"
+      - name: labels
+        type: array
+        required: false
+        description: "Labels a aplicar"
+    requires:
+      - GITHUB_TOKEN
+    returns:
+      type: object
+
+  github_pr:
+    name: "GitHub Pull Request"
+    module: "lmagent.tools.github_tool"
+    class: "GitHubPRTool"
+    description: "Interactúa con GitHub Pull Requests"
+    category: "github"
+    parameters:
+      - name: action
+        type: string
+        enum: [get, list, create, update, merge, review]
+        required: true
+      - name: owner
+        type: string
+        required: true
+      - name: repo
+        type: string
+        required: true
+      - name: pr_number
+        type: integer
+        required: false
+      - name: title
+        type: string
+        required: false
+      - name: body
+        type: string
+        required: false
+      - name: head
+        type: string
+        required: false
+        description: "Branch de origen"
+      - name: base
+        type: string
+        required: false
+        default: "main"
+        description: "Branch destino"
+    requires:
+      - GITHUB_TOKEN
+    returns:
+      type: object
+
+  # ============================================
+  # Code Execution Tools
+  # ============================================
+  sandbox_execute:
+    name: "Sandbox Execute"
+    module: "lmagent.tools.sandbox_tool"
+    class: "SandboxTool"
+    description: "Ejecuta código en un sandbox Docker aislado"
+    category: "execution"
+    parameters:
+      - name: code
+        type: string
+        required: true
+        description: "Código a ejecutar"
+      - name: language
+        type: string
+        enum: [python, node, bash]
+        default: "python"
+      - name: timeout
+        type: integer
+        default: 30
+        max: 300
+        description: "Timeout en segundos"
+      - name: files
+        type: object
+        required: false
+        description: "Archivos adicionales a montar"
+    config:
+      image: "lmagent/sandbox:latest"
+      max_memory: "256m"
+      max_cpu: "0.5"
+      network: "none"
+    security:
+      - "Ejecución aislada en container"
+      - "Sin acceso a red por defecto"
+      - "Recursos limitados"
+    returns:
+      type: object
+      properties:
+        stdout: string
+        stderr: string
+        exit_code: integer
+        duration_ms: integer
+
+  # ============================================
+  # File System Tools
+  # ============================================
+  file_read:
+    name: "File Read"
+    module: "lmagent.tools.file_tool"
+    class: "FileReadTool"
+    description: "Lee contenido de archivos del proyecto"
+    category: "filesystem"
+    parameters:
+      - name: path
+        type: string
+        required: true
+        description: "Ruta relativa al archivo"
+      - name: start_line
+        type: integer
+        required: false
+        description: "Línea inicial (1-indexed)"
+      - name: end_line
+        type: integer
+        required: false
+        description: "Línea final (inclusive)"
+    security:
+      - "Solo archivos dentro del proyecto"
+      - "Respeta .gitignore"
+    returns:
+      type: object
+      properties:
+        content: string
+        lines: integer
+        path: string
+
+  file_write:
+    name: "File Write"
+    module: "lmagent.tools.file_tool"
+    class: "FileWriteTool"
+    description: "Escribe o modifica archivos del proyecto"
+    category: "filesystem"
+    parameters:
+      - name: path
+        type: string
+        required: true
+      - name: content
+        type: string
+        required: true
+      - name: mode
+        type: string
+        enum: [overwrite, append, insert]
+        default: "overwrite"
+      - name: line
+        type: integer
+        required: false
+        description: "Línea para mode=insert"
+    security:
+      - "Requiere confirmación para archivos críticos"
+      - "Backup automático antes de modificar"
+    returns:
+      type: object
+      properties:
+        success: boolean
+        path: string
+        backup_path: string
+
+  file_search:
+    name: "File Search"
+    module: "lmagent.tools.file_tool"
+    class: "FileSearchTool"
+    description: "Busca patrones en archivos del proyecto"
+    category: "filesystem"
+    parameters:
+      - name: pattern
+        type: string
+        required: true
+        description: "Patrón de búsqueda (regex soportado)"
+      - name: path
+        type: string
+        default: "."
+        description: "Directorio base de búsqueda"
+      - name: include
+        type: array
+        required: false
+        description: "Patrones de archivos a incluir (ej: *.py)"
+      - name: exclude
+        type: array
+        required: false
+        description: "Patrones de archivos a excluir"
+      - name: max_results
+        type: integer
+        default: 50
+    returns:
+      type: array
+      items:
+        type: object
+        properties:
+          file: string
+          line: integer
+          content: string
+
+  # ============================================
+  # n8n Integration Tools
+  # ============================================
+  n8n_webhook:
+    name: "n8n Webhook Trigger"
+    module: "lmagent.tools.n8n_tool"
+    class: "N8nWebhookTool"
+    description: "Dispara webhooks de n8n"
+    category: "automation"
+    parameters:
+      - name: webhook_url
+        type: string
+        required: true
+        description: "URL del webhook de n8n"
+      - name: payload
+        type: object
+        required: true
+        description: "Datos a enviar al webhook"
+      - name: method
+        type: string
+        enum: [GET, POST]
+        default: "POST"
+    returns:
+      type: object
+
+  n8n_workflow:
+    name: "n8n Workflow Execute"
+    module: "lmagent.tools.n8n_tool"
+    class: "N8nWorkflowTool"
+    description: "Ejecuta workflows de n8n via API"
+    category: "automation"
+    parameters:
+      - name: workflow_id
+        type: string
+        required: true
+      - name: data
+        type: object
+        required: false
+    requires:
+      - N8N_API_URL
+      - N8N_API_KEY
+    returns:
+      type: object
+
+# Categorías de herramientas
+categories:
+  network:
+    name: "Network & APIs"
+    description: "Herramientas para comunicación HTTP"
+    icon: "🌐"
+  
+  database:
+    name: "Database"
+    description: "Herramientas para interactuar con bases de datos"
+    icon: "🗄️"
+  
+  cache:
+    name: "Cache & State"
+    description: "Herramientas para cache y estado temporal"
+    icon: "⚡"
+  
+  github:
+    name: "GitHub"
+    description: "Herramientas para interactuar con GitHub"
+    icon: "🐙"
+  
+  execution:
+    name: "Code Execution"
+    description: "Herramientas para ejecutar código"
+    icon: "▶️"
+  
+  filesystem:
+    name: "File System"
+    description: "Herramientas para trabajar con archivos"
+    icon: "📁"
+  
+  automation:
+    name: "Automation"
+    description: "Herramientas para automatización (n8n, etc.)"
+    icon: "🤖"

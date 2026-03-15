@@ -1,0 +1,74 @@
+# FastAPI Project Structure
+# Estructura estándar para proyectos backend con FastAPI
+
+project_root:
+  app:
+    __init__.py: "Package init"
+    main.py: "FastAPI app entry point"
+    core:
+      __init__.py: ""
+      config.py: "Settings con pydantic-settings (env vars)"
+      database.py: "Engine, session, dependency"
+      security.py: "JWT, password hashing, auth dependencies"
+    api:
+      __init__.py: ""
+      deps.py: "Shared dependencies (get_current_user, etc)"
+      v1:
+        __init__.py: ""
+        router.py: "APIRouter que incluye todos los endpoints"
+        endpoints:
+          __init__.py: ""
+          auth.py: "Login, register, refresh token"
+          users.py: "CRUD de usuarios"
+          health.py: "Health check, readiness probe"
+    models:
+      __init__.py: ""
+      base.py: "BaseModel con id, created_at, updated_at"
+      user.py: "User SQLModel"
+    schemas:
+      __init__.py: ""
+      user.py: "UserCreate, UserRead, UserUpdate (Pydantic)"
+      auth.py: "TokenResponse, LoginRequest"
+      common.py: "PaginatedResponse, ErrorResponse"
+    services:
+      __init__.py: ""
+      user_service.py: "Business logic para users"
+      auth_service.py: "Auth logic (JWT, password)"
+    repositories:
+      __init__.py: ""
+      base.py: "BaseRepository[T] genérico"
+      user_repository.py: "UserRepository específico"
+    middleware:
+      __init__.py: ""
+      logging.py: "Request/Response logging"
+      error_handler.py: "Global exception handler"
+    utils:
+      __init__.py: ""
+      pagination.py: "Paginación helper"
+      validators.py: "Validaciones custom"
+
+  tests:
+    __init__.py: ""
+    conftest.py: "Fixtures (client, db, user_factory)"
+    unit:
+      test_user_service.py: "Tests de lógica de negocio"
+    integration:
+      test_user_endpoints.py: "Tests de API"
+
+  migrations:
+    env.py: "Alembic config"
+    versions: "Migration files"
+
+  docs:
+    api.md: "API documentation"
+    architecture.md: "Architecture overview"
+
+  root_files:
+    - .env.example
+    - .gitignore
+    - Dockerfile
+    - docker-compose.yml
+    - pyproject.toml
+    - requirements.txt
+    - requirements-dev.txt
+    - README.md

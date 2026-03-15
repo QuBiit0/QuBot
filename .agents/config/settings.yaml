@@ -1,0 +1,432 @@
+# LMAgent Global Settings
+# Configuración global personalizable del framework
+
+version: "3.6.0"
+
+# ============================================
+# PERSONALIZACIÓN DEL FRAMEWORK
+# ============================================
+
+# Información del proyecto (modificar al clonar)
+project:
+  name: "Mi Proyecto"
+  description: "Descripción del proyecto"
+  team: "Nombre del equipo"
+  version: "3.6.0"
+
+# ============================================
+# CONFIGURACIÓN DE IDEs AGÉNTICOS
+# ============================================
+
+# Compatible con múltiples IDEs
+ide_compatibility:
+  # Antigravity (Google)
+  antigravity:
+    enabled: true
+    config_dir: ".agent"
+    symlink: true
+  
+  # Claude Code (Anthropic)
+  claude:
+    enabled: true
+    config_dir: ".claude"
+    symlink: true
+    # Claude usa CLAUDE.md como archivo principal
+    main_file: "CLAUDE.md"
+  
+  # Cursor
+  cursor:
+    enabled: true
+    config_dir: ".cursor"
+    symlink: true
+    # Cursor usa .cursorrules
+    rules_file: ".cursorrules"
+  
+  # Windsurf (Codeium)
+  windsurf:
+    enabled: true
+    config_dir: ".windsurf"
+    symlink: true
+  
+  # Roo Code
+  roo:
+    enabled: true
+    config_dir: ".roo"
+    symlink: true
+  
+  # GitHub Copilot
+  copilot:
+    enabled: true
+    config_dir: ".github"
+    instructions_file: "copilot-instructions.md"
+
+# ============================================
+# COMPORTAMIENTO DEL AGENTE
+# ============================================
+
+agent_behavior:
+  # Nivel de autonomía
+  autonomy:
+    # auto: El agente decide basándose en el nivel
+    # always_ask: Siempre pedir confirmación
+    # never_ask: Nunca pedir confirmación
+    mode: "auto"
+    
+    # Nivel mínimo para pedir confirmación
+    # 0 = siempre pedir, 4 = nunca pedir
+    ask_confirmation_above_level: 1
+  
+  # Verbosidad de respuestas
+  verbosity:
+    # minimal: Solo lo esencial
+    # normal: Explicación breve
+    # verbose: Explicación detallada
+    default: "normal"
+    
+    # Mostrar thinking/reasoning
+    show_reasoning: true
+  
+  # Persona Mode (Inspirado en Gentle-AI)
+  persona:
+    # gentleman: Rol de mentor, corrige antipatrones y explica el porqué
+    # neutral: Tono profesional sin personalidad. Directo al código.
+    # default: Comportamiento estándar de LMAgent
+    mode: "gentleman"
+    
+  # Idioma preferido para respuestas
+  language: "es"  # es, en, pt, etc.
+  
+  # Formato de respuestas
+  response_format:
+    use_markdown: true
+    use_emojis: true
+    code_blocks_with_language: true
+    
+  # Memoria Persistente (Inspirado en Engram)
+  memory:
+    enabled: true
+    directory: ".agents/memory"
+    # engman: Persistencia estricta cross-session
+    # none: Solo memoria de contexto en chat
+    persistence_mode: "engram"
+
+# ============================================
+# SISTEMA DE NIVELES (BMAD-style)
+# ============================================
+
+levels:
+  # Personalizar niveles o usar defaults de config/levels.yaml
+  use_custom: false
+  custom_file: null  # Path a archivo custom de niveles
+  
+  # Ajustar tiempos estimados según el equipo
+  time_multiplier: 1.0  # 1.5 = equipos más lentos, 0.5 = más rápidos
+  
+  # Reglas de auto-clasificación
+  auto_classification:
+    enabled: true
+    # Archivos que suben el nivel automáticamente
+    level_bumps:
+      - pattern: "*.sql"
+        min_level: 2
+      - pattern: "*migration*"
+        min_level: 3
+      - pattern: "*auth*"
+        min_level: 2
+      - pattern: "*security*"
+        min_level: 3
+      - pattern: "docker-compose*.yml"
+        min_level: 2
+      - pattern: ".env*"
+        min_level: 2
+
+# ============================================
+# SKILLS (Capacidades Especializadas)
+# ============================================
+
+skills:
+  # Directorio donde están los skills
+  directory: "skills"
+  
+  # Skills habilitados (todos por default)
+  enabled:
+    # Meta-Skill
+    - orchestrator
+    # Engineering
+    - backend-engineer
+    - frontend-engineer
+    - mobile-engineer
+    - data-engineer
+    - devops-engineer
+    - performance-engineer
+    - security-analyst
+    - qa-engineer
+    # AI & Automation
+    - ai-agent-engineer
+    - automation-engineer
+    - prompt-engineer
+    # Management & Process
+    - product-manager
+    - architect
+    - tech-lead
+    - scrum-master
+    - technical-writer
+    - ux-ui-designer
+    # Methodologies
+    - bmad-methodology
+    - swe-agent
+    - spec-driven-dev
+  
+  # Skill por defecto cuando no se especifica
+  default: "orchestrator"
+  
+  # Permitir crear skills custom
+  allow_custom: true
+  custom_directory: "skills/custom"
+
+# ============================================
+# HERRAMIENTAS (SWE-agent style)
+# ============================================
+
+tools:
+  # Registry de herramientas
+  registry_file: "config/tools.yaml"
+  
+  # Herramientas habilitadas por default
+  default_enabled:
+    - http_request
+    - database_query
+    - file_read
+    - file_write
+    - file_search
+  
+  # Herramientas que requieren confirmación
+  require_confirmation:
+    - database_write
+    - file_delete
+    - sandbox_execute
+    - github_pr_create
+  
+  # Herramientas bloqueadas (nunca disponibles)
+  blocked: []
+  
+  # Sandbox para ejecución de código
+  sandbox:
+    enabled: true
+    docker_image: "lmagent/sandbox:latest"
+    max_memory: "256m"
+    max_cpu: "0.5"
+    timeout: 300
+    network: "none"
+
+# ============================================
+# MODELOS LLM
+# ============================================
+
+models:
+  # Archivo de configuración de modelos
+  config_file: "config/models.yaml"
+  
+  # Modelo por defecto
+  default_provider: "openai"
+  default_model: "gpt-4o"
+  
+  # Fallback si el modelo principal falla
+  fallback:
+    enabled: true
+    provider: "anthropic"
+    model: "claude-sonnet-4"
+  
+  # Límites de costo
+  cost_limits:
+    per_request: 1.00      # USD
+    per_task: 5.00         # USD
+    per_issue: 2.00        # USD (para resolución autónoma)
+    per_day: 50.00         # USD
+    alert_threshold: 0.80  # Alertar al 80% del límite
+
+# ============================================
+# OBSERVABILIDAD (SWE-agent style)
+# ============================================
+
+observability:
+  # Logging
+  logging:
+    level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+    format: "json"  # json, text
+    file: "logs/lmagent.log"
+    rotate: true
+    max_size_mb: 100
+    keep_days: 30
+  
+  # Trajectory logging (como SWE-agent)
+  trajectories:
+    enabled: true
+    directory: "trajectories"
+    format: "json"  # json, markdown
+    include_prompts: true
+    include_responses: true
+    include_tool_calls: true
+  
+  # Cost tracking
+  cost_tracking:
+    enabled: true
+    file: "logs/costs.json"
+    report_frequency: "daily"  # daily, weekly, monthly
+  
+  # Métricas
+  metrics:
+    enabled: false
+    provider: "prometheus"  # prometheus, datadog, custom
+    port: 9090
+
+# ============================================
+# WORKFLOWS
+# ============================================
+
+workflows:
+  # Directorio de workflows
+  directory: "workflows"
+  
+  # Workflows habilitados
+  enabled:
+    - bugfix-backend
+    - documentation
+    - generate-prd
+    - ideation
+    - new-agent-ia
+    - new-automation
+    - new-feature
+    - optimize-performance
+    - resolve-github-issue
+    - security-review
+    - spec-driven
+    - testing-strategy
+    - third-party-integration
+  
+  # Permitir workflows custom
+  allow_custom: true
+  custom_directory: "workflows/custom"
+  
+  # Auto-sugerir workflow basado en input
+  auto_suggest: true
+
+# ============================================
+# INTEGRACIONES
+# ============================================
+
+integrations:
+  # GitHub
+  github:
+    enabled: true
+    auto_create_pr: false  # Crear PR automáticamente
+    auto_assign_issues: false
+    labels:
+      bug: "bug"
+      feature: "enhancement"
+      agent_resolved: "agent-resolved"
+  
+  # n8n
+  n8n:
+    enabled: true
+    webhook_base_url: ""  # URL base de webhooks
+    api_url: ""           # URL de la API de n8n
+  
+  # Slack/Discord (notificaciones)
+  notifications:
+    enabled: false
+    provider: "slack"  # slack, discord, email
+    webhook_url: ""
+    notify_on:
+      - task_completed
+      - error
+      - cost_limit_reached
+
+# ============================================
+# SEGURIDAD
+# ============================================
+
+security:
+  # Archivos/patrones a nunca modificar
+  protected_paths:
+    - ".env"
+    - ".env.production"
+    - "**/secrets/**"
+    - "**/credentials/**"
+  
+  # Archivos a nunca leer (además de .gitignore)
+  ignored_paths:
+    - "node_modules/**"
+    - "**/__pycache__/**"
+    - ".git/**"
+    - "*.pyc"
+  
+  # Validación de código antes de ejecutar (Rule 04: Zero Trust & Anti Prompt-Injection)
+  code_validation:
+    enabled: true
+    block_dangerous_patterns:
+      - "rm -rf "
+      - "DROP DATABASE"
+      - "eval("
+      - "exec("
+      - "os.system("
+      - "subprocess.Popen"
+    # Sandbox explícito para herramientas complejas (Rule 04)
+    enforce_readonly_tools_in_prod: true
+  
+  # Rate limiting
+  rate_limiting:
+    enabled: true
+    max_requests_per_minute: 60
+    max_tool_calls_per_request: 50
+
+# ============================================
+# TEMPLATES DE PROYECTO
+# ============================================
+
+templates:
+  # Directorio de templates
+  directory: "templates"
+  
+  # Templates disponibles
+  available:
+    - name: "backend-python"
+      description: "FastAPI backend with SQLModel"
+      path: "templates/backend-python"
+    
+    - name: "backend-node"
+      description: "NestJS/Express backend with Prisma"
+      path: "templates/backend-node"
+    
+    - name: "agent-python"
+      description: "Python-based AI agent"
+      path: "templates/agent-python"
+    
+    - name: "automation-n8n"
+      description: "n8n webhook handler"
+      path: "templates/automation-n8n"
+    
+    - name: "database"
+      description: "Database schema and migrations"
+      path: "templates/database"
+
+    - name: "frontend-react"
+      description: "React Frontend template"
+      path: "templates/frontend-react"
+
+# ============================================
+# EXTENSIONES
+# ============================================
+
+extensions:
+  # Permitir extensiones/plugins
+  enabled: true
+  directory: "extensions"
+  
+  # Extensiones instaladas
+  installed: []
+  
+  # Extensiones disponibles (marketplace futuro)
+  # available:
+  #   - name: "lmagent-jira"
+  #     description: "Integración con Jira"

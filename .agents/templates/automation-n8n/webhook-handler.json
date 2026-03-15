@@ -1,0 +1,57 @@
+{
+    "name": "LMAgent Webhook Handler",
+    "nodes": [
+        {
+            "parameters": {
+                "path": "webhook",
+                "responseMode": "lastNode",
+                "options": {}
+            },
+            "name": "Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                460,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "keepOnlySet": true,
+                "values": {
+                    "string": [
+                        {
+                            "name": "message",
+                            "value": "Hello from LMAgent Automation!"
+                        },
+                        {
+                            "name": "timestamp",
+                            "value": "={{ $now }}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "name": "Format Response",
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 2,
+            "position": [
+                680,
+                300
+            ]
+        }
+    ],
+    "connections": {
+        "Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Format Response",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}

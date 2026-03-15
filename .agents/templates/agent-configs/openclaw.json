@@ -1,0 +1,17 @@
+{
+    "version": "1.0",
+    "framework": "lmagent",
+    "frameworkVersion": "{{VERSION}}",
+    "agentsFile": "./AGENTS.md",
+    "rulesDir": "./rules",
+    "skillsDir": "./skills",
+    "description": "LMAgent Framework - Skills and rules for AI agents",
+    "quickStart": {
+        "/dev": "Backend Engineer",
+        "/front": "Frontend Engineer",
+        "/arch": "Architect",
+        "/fix": "Debugger",
+        "/pm": "Product Manager",
+        "/orch": "Orchestrator"
+    }
+}

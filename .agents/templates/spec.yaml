@@ -1,0 +1,229 @@
+# Spec Template (SPEC DRIVEN Development)
+# LMAgent Framework v3.0.0 - SPEC+LM Methodology
+#
+# This template creates a structured specification that serves as the
+# source of truth for feature development. Use with `/pm` persona.
+#
+# Usage:
+#   1. Copy to: specs/[feature-name]/spec.yaml
+#   2. Fill in all [bracketed] sections
+#   3. Get approval before proceeding to plan.yaml
+
+---
+metadata:
+  title: "[Feature Name]"
+  version: "1.0"
+  author: "[PM Name or Agent ID]"
+  created: "[YYYY-MM-DD]"
+  updated: "[YYYY-MM-DD]"
+  status: draft  # draft | review | approved | superseded
+  tags:
+    - "[category]"
+    - "[priority]"
+
+# ============================================
+# PROBLEM DEFINITION
+# ============================================
+
+problem_statement:
+  # One clear sentence describing the problem
+  description: "[What problem are we solving?]"
+  
+  # Who experiences this problem?
+  affected_users:
+    - type: "[User type 1]"
+      pain_level: high  # high | medium | low
+    - type: "[User type 2]"
+      pain_level: medium
+  
+  # How significant is this problem?
+  impact:
+    business: "[Revenue impact, efficiency, etc.]"
+    users: "[User experience impact]"
+    technical: "[Technical debt, scalability, etc.]"
+  
+  # Evidence that this problem exists
+  evidence:
+    - type: data
+      source: "[Analytics, metrics]"
+      finding: "[What the data shows]"
+    - type: feedback
+      source: "[Support tickets, interviews]"
+      finding: "[What users say]"
+    - type: observation
+      source: "[Competitive analysis, market research]"
+      finding: "[External validation]"
+
+# ============================================
+# SOLUTION DEFINITION
+# ============================================
+
+solution:
+  overview: "[High-level description of the proposed solution]"
+  
+  approach: "[Technical/product approach - 2-3 sentences]"
+  
+  # What IS included
+  in_scope:
+    - feature: "[Feature 1]"
+      priority: must_have  # must_have | should_have | could_have
+    - feature: "[Feature 2]"
+      priority: must_have
+    - feature: "[Feature 3]"
+      priority: should_have
+  
+  # What is NOT included (explicit anti-scope)
+  out_of_scope:
+    - "[Anti-feature 1 - Why excluded]"
+    - "[Anti-feature 2 - Future consideration]"
+  
+  # Key decisions already made
+  decisions:
+    - decision: "[Decision 1]"
+      rationale: "[Why this choice]"
+      alternatives_considered:
+        - "[Alternative A - rejected because...]"
+        - "[Alternative B - rejected because...]"
+
+# ============================================
+# USER STORIES
+# ============================================
+
+user_stories:
+  - id: "US-001"
+    title: "[Short descriptive title]"
+    as_a: "[user type]"
+    i_want: "[action/capability]"
+    so_that: "[benefit/value]"
+    priority: 1  # 1 = highest
+    story_points: 3  # 1, 2, 3, 5, 8, 13
+    acceptance_criteria:
+      - "Given [context], when [action], then [result]"
+      - "Given [context], when [action], then [result]"
+    notes: "[Additional context]"
+    
+  - id: "US-002"
+    title: "[Short descriptive title]"
+    as_a: "[user type]"
+    i_want: "[action/capability]"
+    so_that: "[benefit/value]"
+    priority: 2
+    story_points: 5
+    acceptance_criteria:
+      - "Given [context], when [action], then [result]"
+    dependencies:
+      - "US-001"
+
+# ============================================
+# SUCCESS METRICS
+# ============================================
+
+success_metrics:
+  # Primary success metric (North Star)
+  primary:
+    metric: "[KPI name]"
+    baseline: "[current value]"
+    target: "[goal value]"
+    timeline: "[when to measure]"
+    measurement_method: "[How to measure]"
+  
+  # Secondary metrics
+  secondary:
+    - metric: "[KPI name]"
+      baseline: "[current value]"
+      target: "[goal value]"
+      timeline: "[when]"
+    - metric: "[KPI name]"
+      baseline: "[current value]"
+      target: "[goal value]"
+      timeline: "[when]"
+  
+  # Guardrail metrics (should NOT get worse)
+  guardrails:
+    - metric: "[Metric to protect]"
+      current: "[value]"
+      acceptable_variance: "[+/- X%]"
+
+# ============================================
+# CONSTRAINTS & DEPENDENCIES
+# ============================================
+
+constraints:
+  technical:
+    - "[Must use existing auth system]"
+    - "[Must work on PostgreSQL 16+]"
+  business:
+    - "[Must launch before Q2]"
+    - "[Budget: $X]"
+  compliance:
+    - "[GDPR requirements]"
+    - "[Security standards]"
+  resources:
+    - "[Available team capacity]"
+    - "[External dependencies]"
+
+dependencies:
+  internal:
+    - system: "[System name]"
+      type: blocking  # blocking | optional
+      status: available  # available | in_progress | blocked
+  external:
+    - service: "[Third-party service]"
+      type: integration
+      owner: "[Team/vendor]"
+
+# ============================================
+# RISKS
+# ============================================
+
+risks:
+  - id: "R-001"
+    description: "[Risk description]"
+    probability: high  # high | medium | low
+    impact: high  # high | medium | low
+    mitigation: "[How to mitigate]"
+    owner: "[Who owns this risk]"
+    
+  - id: "R-002"
+    description: "[Risk description]"
+    probability: medium
+    impact: medium
+    mitigation: "[How to mitigate]"
+    contingency: "[Plan B if risk materializes]"
+
+# ============================================
+# TIMELINE
+# ============================================
+
+timeline:
+  estimated_total: "[X days/weeks]"
+  phases:
+    - phase: "Planning"
+      duration: "[X days]"
+      milestone: "Plan approved"
+    - phase: "Implementation"
+      duration: "[X days]"
+      milestone: "Feature complete"
+    - phase: "Testing"
+      duration: "[X days]"
+      milestone: "QA sign-off"
+    - phase: "Rollout"
+      duration: "[X days]"
+      milestone: "100% deployed"
+
+# ============================================
+# APPROVALS
+# ============================================
+
+approvals:
+  required:
+    - role: "[Product Manager]"
+      status: pending  # pending | approved | rejected
+      date: null
+    - role: "[Tech Lead]"
+      status: pending
+      date: null
+  optional:
+    - role: "[Security]"
+      status: pending
+      condition: "If auth changes"

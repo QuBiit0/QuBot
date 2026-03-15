@@ -1,0 +1,135 @@
+# Sistema de Niveles Adaptativos LMAgent
+# Inspirado en BMAD-METHOD Scale-Adaptive Intelligence
+
+levels:
+  0:
+    name: "Trivial"
+    description: "Bug fixes, typos, configuraciones menores, cambios de formato"
+    planning_required: false
+    estimated_time: "< 5 min"
+    checklist: "checklists/level-0-trivial.md"
+    human_review: false
+    artifacts: []
+    examples:
+      - "Corregir typo en README"
+      - "Actualizar versión en package.json"
+      - "Agregar variable de entorno"
+      - "Fix de formato en código"
+
+  1:
+    name: "Small"
+    description: "Features pequeños, refactors localizados, bug fixes simples"
+    planning_required: true
+    planning_depth: "minimal"
+    estimated_time: "5-30 min"
+    checklist: "checklists/level-1-small.md"
+    human_review: false
+    artifacts:
+      - description: "Descripción breve del cambio (1-2 párrafos)"
+    examples:
+      - "Agregar endpoint de health check"
+      - "Refactorizar función específica"
+      - "Agregar logging a servicio"
+      - "Bug fix con causa clara"
+
+  2:
+    name: "Medium"
+    description: "Features medianos, integraciones simples, endpoints CRUD completos"
+    planning_required: true
+    planning_depth: "standard"
+    estimated_time: "30 min - 2 hrs"
+    checklist: "checklists/level-2-medium.md"
+    human_review: true
+    artifacts:
+      - implementation_plan.md
+    examples:
+      - "Nuevo módulo de API con varios endpoints"
+      - "Integración con servicio externo"
+      - "Nuevo workflow de n8n"
+      - "Agregar autenticación a servicio"
+
+  3:
+    name: "Complex"
+    description: "Sistemas nuevos, arquitectura nueva, múltiples servicios afectados"
+    planning_required: true
+    planning_depth: "extensive"
+    estimated_time: "2-8 hrs"
+    checklist: "checklists/level-3-complex.md"
+    human_review: true
+    artifacts:
+      - implementation_plan.md
+      - architecture.md
+      - test_plan.md
+    examples:
+      - "Nuevo microservicio"
+      - "Rediseño de base de datos"
+      - "Sistema de agentes IA completo"
+      - "Pipeline de datos end-to-end"
+
+  4:
+    name: "Enterprise"
+    description: "Cambios críticos, migraciones, compliance, seguridad"
+    planning_required: true
+    planning_depth: "audit"
+    estimated_time: "8+ hrs"
+    checklist: "checklists/level-4-enterprise.md"
+    human_review: true
+    human_approval_required: true
+    artifacts:
+      - implementation_plan.md
+      - architecture.md
+      - test_plan.md
+      - security_review.md
+      - rollback_plan.md
+    examples:
+      - "Migración de base de datos"
+      - "Cambio de proveedor de autenticación"
+      - "Implementación de compliance (GDPR, etc.)"
+      - "Refactor mayor de arquitectura"
+
+# Reglas de clasificación automática
+classification_rules:
+  # Si afecta estos patrones, sube automáticamente de nivel
+  level_bumps:
+    - pattern: "*.sql"
+      min_level: 2
+      reason: "Cambios de base de datos requieren más cuidado"
+    
+    - pattern: "*auth*"
+      min_level: 2
+      reason: "Cambios de autenticación son sensibles"
+    
+    - pattern: "*migration*"
+      min_level: 3
+      reason: "Migraciones requieren planning extensivo"
+    
+    - pattern: "*security*"
+      min_level: 3
+      reason: "Cambios de seguridad requieren revisión"
+    
+    - pattern: "docker-compose*.yml"
+      min_level: 2
+      reason: "Cambios de infraestructura afectan deployment"
+
+  # Palabras clave que indican complejidad
+  complexity_keywords:
+    high:
+      - "breaking change"
+      - "migration"
+      - "security"
+      - "authentication"
+      - "authorization"
+      - "encryption"
+      - "production"
+    medium:
+      - "new service"
+      - "new endpoint"
+      - "integration"
+      - "database"
+      - "schema"
+    low:
+      - "fix"
+      - "typo"
+      - "format"
+      - "update version"
+      - "readme"

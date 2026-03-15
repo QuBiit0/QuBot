@@ -1,0 +1,192 @@
+# LMAgent LLM Models Configuration
+# Configuración de proveedores de modelos de lenguaje
+
+version: "3.6.0"
+
+# Configuración global
+settings:
+  default_provider: "openai"
+  default_model: "gpt-4o"
+  cost_tracking: true
+  max_cost_per_task: 5.00  # USD
+  max_cost_per_issue: 2.00  # USD (para resolución autónoma)
+  trajectory_logging: true
+
+# Proveedores de LLM
+providers:
+  openai:
+    name: "OpenAI"
+    api_base: "https://api.openai.com/v1"
+    env_key: "OPENAI_API_KEY"
+    models:
+      gpt-4o:
+        name: "GPT-4o"
+        context_window: 128000
+        max_output: 16384
+        cost_per_1k_input: 0.005
+        cost_per_1k_output: 0.015
+        supports_tools: true
+        supports_vision: true
+        recommended_for:
+          - "Tareas complejas"
+          - "Código"
+          - "Análisis"
+      
+      gpt-4o-mini:
+        name: "GPT-4o Mini"
+        context_window: 128000
+        max_output: 16384
+        cost_per_1k_input: 0.00015
+        cost_per_1k_output: 0.0006
+        supports_tools: true
+        supports_vision: true
+        recommended_for:
+          - "Tareas simples"
+          - "Alto volumen"
+          - "Clasificación"
+      
+      o1:
+        name: "O1"
+        context_window: 200000
+        max_output: 100000
+        cost_per_1k_input: 0.015
+        cost_per_1k_output: 0.060
+        supports_tools: false
+        supports_vision: true
+        recommended_for:
+          - "Razonamiento complejo"
+          - "Matemáticas"
+          - "Arquitectura"
+
+  anthropic:
+    name: "Anthropic"
+    api_base: "https://api.anthropic.com/v1"
+    env_key: "ANTHROPIC_API_KEY"
+    models:
+      claude-sonnet-4:
+        name: "Claude Sonnet 4"
+        context_window: 200000
+        max_output: 64000
+        cost_per_1k_input: 0.003
+        cost_per_1k_output: 0.015
+        supports_tools: true
+        supports_vision: true
+        recommended_for:
+          - "Código"
+          - "Análisis largo"
+          - "Documentación"
+      
+      claude-haiku-3.5:
+        name: "Claude Haiku 3.5"
+        context_window: 200000
+        max_output: 8192
+        cost_per_1k_input: 0.0008
+        cost_per_1k_output: 0.004
+        supports_tools: true
+        supports_vision: true
+        recommended_for:
+          - "Tareas simples"
+          - "Alto volumen"
+          - "Clasificación"
+
+  google:
+    name: "Google AI"
+    api_base: "https://generativelanguage.googleapis.com/v1beta"
+    env_key: "GOOGLE_API_KEY"
+    models:
+      gemini-2.5-flash:
+        name: "Gemini 2.5 Flash"
+        context_window: 1000000
+        max_output: 65536
+        cost_per_1k_input: 0.00015
+        cost_per_1k_output: 0.0006
+        supports_tools: true
+        supports_vision: true
+        recommended_for:
+          - "Contexto muy largo"
+          - "Eficiencia"
+          - "Multimodal"
+      
+      gemini-2.5-pro:
+        name: "Gemini 2.5 Pro"
+        context_window: 1000000
+        max_output: 65536
+        cost_per_1k_input: 0.00125
+        cost_per_1k_output: 0.005
+        supports_tools: true
+        supports_vision: true
+        recommended_for:
+          - "Razonamiento"
+          - "Código complejo"
+          - "Análisis extenso"
+
+  groq:
+    name: "Groq"
+    api_base: "https://api.groq.com/openai/v1"
+    env_key: "GROQ_API_KEY"
+    models:
+      llama-3.3-70b:
+        name: "Llama 3.3 70B"
+        context_window: 128000
+        max_output: 32768
+        cost_per_1k_input: 0.00059
+        cost_per_1k_output: 0.00079
+        supports_tools: true
+        supports_vision: false
+        recommended_for:
+          - "Velocidad"
+          - "Código"
+          - "Desarrollo rápido"
+
+  openrouter:
+    name: "OpenRouter"
+    api_base: "https://openrouter.ai/api/v1"
+    env_key: "OPENROUTER_API_KEY"
+    description: "Acceso a múltiples modelos via una sola API"
+    models:
+      # Los modelos se configuran dinámicamente
+
+# Configuración por tipo de tarea
+task_models:
+  code_generation:
+    primary: "anthropic/claude-sonnet-4"
+    fallback: "openai/gpt-4o"
+    reason: "Claude Sonnet 4 es excelente para código"
+  
+  code_review:
+    primary: "anthropic/claude-sonnet-4"
+    fallback: "openai/gpt-4o"
+    reason: "Análisis detallado de código"
+  
+  architecture:
+    primary: "openai/o1"
+    fallback: "anthropic/claude-sonnet-4"
+    reason: "O1 para razonamiento arquitectural complejo"
+  
+  documentation:
+    primary: "anthropic/claude-sonnet-4"
+    fallback: "google/gemini-2.5-flash"
+    reason: "Excelente para documentación extensa"
+  
+  quick_tasks:
+    primary: "google/gemini-2.5-flash"
+    fallback: "groq/llama-3.3-70b"
+    reason: "Velocidad y eficiencia para tareas simples"
+  
+  classification:
+    primary: "openai/gpt-4o-mini"
+    fallback: "anthropic/claude-haiku-3.5"
+    reason: "Económico para clasificación"
+  
+  long_context:
+    primary: "google/gemini-2.5-pro"
+    fallback: "anthropic/claude-sonnet-4"
+    reason: "1M tokens de contexto"
+
+# Límites de seguridad
+limits:
+  max_tokens_per_request: 100000
+  max_requests_per_minute: 60
+  max_concurrent_requests: 5
+  cost_alert_threshold: 1.00  # USD - alertar al llegar a este costo
+  auto_stop_threshold: 10.00  # USD - detener automáticamente

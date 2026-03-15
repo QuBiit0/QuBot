@@ -1,0 +1,534 @@
+# LMAgent Extended Tool Registry
+# Includes all SWE-agent tools + custom tools
+
+version: "1.1"
+
+# ============================================
+# SHELL & SYSTEM TOOLS (SWE-agent style)
+# ============================================
+
+tools:
+  # ----------------------------------------
+  # Shell Execution
+  # ----------------------------------------
+  shell_execute:
+    name: "Shell Execute"
+    module: "lmagent.tools.shell_tool"
+    class: "ShellTool"
+    description: "Execute shell commands in the project directory"
+    category: "system"
+    parameters:
+      - name: command
+        type: string
+        required: true
+        description: "Shell command to execute"
+      - name: cwd
+        type: string
+        required: false
+        description: "Working directory (relative to project root)"
+      - name: timeout
+        type: integer
+        default: 60
+        description: "Timeout in seconds"
+      - name: env
+        type: object
+        required: false
+        description: "Additional environment variables"
+    security:
+      - "Commands are logged"
+      - "Dangerous commands blocked by default"
+      - "Runs in project directory only"
+    dangerous_patterns:
+      - "rm -rf /"
+      - "rm -rf ~"
+      - "rm -rf *"
+      - "> /dev/sda"
+      - "mkfs"
+      - "dd if="
+      - ":(){:|:&};:"
+    returns:
+      type: object
+      properties:
+        stdout: string
+        stderr: string
+        exit_code: integer
+        duration_ms: integer
+
+  # ----------------------------------------
+  # Git Operations
+  # ----------------------------------------
+  git_status:
+    name: "Git Status"
+    module: "lmagent.tools.git_tool"
+    class: "GitStatusTool"
+    description: "Get current git status (modified, staged, untracked files)"
+    category: "git"
+    parameters: []
+    returns:
+      type: object
+      properties:
+        branch: string
+        modified: array
+        staged: array
+        untracked: array
+        ahead: integer
+        behind: integer
+
+  git_diff:
+    name: "Git Diff"
+    module: "lmagent.tools.git_tool"
+    class: "GitDiffTool"
+    description: "Get diff of changes"
+    category: "git"
+    parameters:
+      - name: file
+        type: string
+        required: false
+        description: "Specific file to diff (optional)"
+      - name: staged
+        type: boolean
+        default: false
+        description: "Show staged changes only"
+    returns:
+      type: object
+      properties:
+        diff: string
+        files_changed: integer
+        insertions: integer
+        deletions: integer
+
+  git_add:
+    name: "Git Add"
+    module: "lmagent.tools.git_tool"
+    class: "GitAddTool"
+    description: "Stage files for commit"
+    category: "git"
+    parameters:
+      - name: files
+        type: array
+        required: true
+        description: "Files to stage (use ['.'] for all)"
+    returns:
+      type: object
+      properties:
+        staged: array
+
+  git_commit:
+    name: "Git Commit"
+    module: "lmagent.tools.git_tool"
+    class: "GitCommitTool"
+    description: "Commit staged changes"
+    category: "git"
+    parameters:
+      - name: message
+        type: string
+        required: true
+        description: "Commit message (follow conventional commits)"
+      - name: amend
+        type: boolean
+        default: false
+        description: "Amend last commit"
+    security:
+      - "Validates commit message format"
+    returns:
+      type: object
+      properties:
+        commit_hash: string
+        message: string
+        files_committed: integer
+
+  git_push:
+    name: "Git Push"
+    module: "lmagent.tools.git_tool"
+    class: "GitPushTool"
+    description: "Push commits to remote"
+    category: "git"
+    parameters:
+      - name: remote
+        type: string
+        default: "origin"
+      - name: branch
+        type: string
+        required: false
+        description: "Branch to push (default: current)"
+      - name: force
+        type: boolean
+        default: false
+        description: "Force push (use with caution)"
+    security:
+      - "Force push requires confirmation"
+      - "Protected branches blocked"
+    returns:
+      type: object
+      properties:
+        success: boolean
+        remote: string
+        branch: string
+
+  git_branch:
+    name: "Git Branch"
+    module: "lmagent.tools.git_tool"
+    class: "GitBranchTool"
+    description: "Create, switch, or list branches"
+    category: "git"
+    parameters:
+      - name: action
+        type: string
+        enum: [list, create, switch, delete]
+        default: "list"
+      - name: name
+        type: string
+        required: false
+        description: "Branch name for create/switch/delete"
+      - name: base
+        type: string
+        required: false
+        description: "Base branch for create"
+    returns:
+      type: object
+      properties:
+        branches: array
+        current: string
+
+  git_log:
+    name: "Git Log"
+    module: "lmagent.tools.git_tool"
+    class: "GitLogTool"
+    description: "Get commit history"
+    category: "git"
+    parameters:
+      - name: count
+        type: integer
+        default: 10
+        description: "Number of commits to show"
+      - name: file
+        type: string
+        required: false
+        description: "Filter by file"
+    returns:
+      type: array
+      items:
+        type: object
+        properties:
+          hash: string
+          message: string
+          author: string
+          date: string
+
+  # ----------------------------------------
+  # Linter & Formatter Tools
+  # ----------------------------------------
+  lint_python:
+    name: "Python Linter"
+    module: "lmagent.tools.lint_tool"
+    class: "PythonLintTool"
+    description: "Run ruff linter on Python code"
+    category: "quality"
+    parameters:
+      - name: path
+        type: string
+        default: "."
+        description: "Path to lint"
+      - name: fix
+        type: boolean
+        default: false
+        description: "Auto-fix issues"
+    returns:
+      type: object
+      properties:
+        errors: array
+        warnings: array
+        fixed: integer
+        total_issues: integer
+
+  format_python:
+    name: "Python Formatter"
+    module: "lmagent.tools.lint_tool"
+    class: "PythonFormatTool"
+    description: "Format Python code with ruff"
+    category: "quality"
+    parameters:
+      - name: path
+        type: string
+        default: "."
+        description: "Path to format"
+      - name: check
+        type: boolean
+        default: false
+        description: "Check only, don't modify"
+    returns:
+      type: object
+      properties:
+        formatted: array
+        would_format: array
+
+  lint_typescript:
+    name: "TypeScript Linter"
+    module: "lmagent.tools.lint_tool"
+    class: "TypeScriptLintTool"
+    description: "Run ESLint on TypeScript/JavaScript code"
+    category: "quality"
+    parameters:
+      - name: path
+        type: string
+        default: "."
+      - name: fix
+        type: boolean
+        default: false
+    returns:
+      type: object
+      properties:
+        errors: array
+        warnings: array
+        fixed: integer
+
+  type_check:
+    name: "Type Checker"
+    module: "lmagent.tools.lint_tool"
+    class: "TypeCheckTool"
+    description: "Run type checker (mypy for Python, tsc for TypeScript)"
+    category: "quality"
+    parameters:
+      - name: language
+        type: string
+        enum: [python, typescript]
+        required: true
+      - name: path
+        type: string
+        default: "."
+    returns:
+      type: object
+      properties:
+        errors: array
+        files_checked: integer
+
+  # ----------------------------------------
+  # Test Runner Tools
+  # ----------------------------------------
+  run_tests:
+    name: "Test Runner"
+    module: "lmagent.tools.test_tool"
+    class: "TestRunnerTool"
+    description: "Run test suite"
+    category: "testing"
+    parameters:
+      - name: framework
+        type: string
+        enum: [pytest, jest, auto]
+        default: "auto"
+        description: "Test framework (auto-detect if not specified)"
+      - name: path
+        type: string
+        required: false
+        description: "Specific test file or directory"
+      - name: pattern
+        type: string
+        required: false
+        description: "Test name pattern to match"
+      - name: coverage
+        type: boolean
+        default: false
+        description: "Generate coverage report"
+      - name: verbose
+        type: boolean
+        default: true
+    returns:
+      type: object
+      properties:
+        passed: integer
+        failed: integer
+        skipped: integer
+        duration_seconds: number
+        coverage_percent: number
+        failures: array
+
+  run_single_test:
+    name: "Run Single Test"
+    module: "lmagent.tools.test_tool"
+    class: "SingleTestTool"
+    description: "Run a single test by name"
+    category: "testing"
+    parameters:
+      - name: test_name
+        type: string
+        required: true
+        description: "Full test path (e.g., tests/test_auth.py::test_login)"
+      - name: verbose
+        type: boolean
+        default: true
+    returns:
+      type: object
+      properties:
+        passed: boolean
+        output: string
+        duration_seconds: number
+
+  # ----------------------------------------
+  # Edit-Lint Loop (SWE-agent style)
+  # ----------------------------------------
+  edit_and_lint:
+    name: "Edit and Lint"
+    module: "lmagent.tools.edit_lint_tool"
+    class: "EditLintTool"
+    description: "Edit a file and automatically run linter, fixing issues if possible"
+    category: "composite"
+    parameters:
+      - name: file
+        type: string
+        required: true
+        description: "File to edit"
+      - name: content
+        type: string
+        required: true
+        description: "New content for the file"
+      - name: auto_fix
+        type: boolean
+        default: true
+        description: "Automatically fix lint issues"
+      - name: run_tests
+        type: boolean
+        default: false
+        description: "Run related tests after edit"
+    returns:
+      type: object
+      properties:
+        file_updated: boolean
+        lint_passed: boolean
+        lint_issues: array
+        auto_fixed: array
+        tests_passed: boolean
+        tests_output: string
+
+  # ----------------------------------------
+  # Dependency Management
+  # ----------------------------------------
+  check_dependencies:
+    name: "Check Dependencies"
+    module: "lmagent.tools.deps_tool"
+    class: "DependencyCheckTool"
+    description: "Check for outdated or vulnerable dependencies"
+    category: "quality"
+    parameters:
+      - name: manager
+        type: string
+        enum: [pip, npm, auto]
+        default: "auto"
+    returns:
+      type: object
+      properties:
+        outdated: array
+        vulnerabilities: array
+        total_packages: integer
+
+  install_dependency:
+    name: "Install Dependency"
+    module: "lmagent.tools.deps_tool"
+    class: "InstallDependencyTool"
+    description: "Install a new dependency"
+    category: "quality"
+    parameters:
+      - name: package
+        type: string
+        required: true
+        description: "Package name"
+      - name: version
+        type: string
+        required: false
+        description: "Specific version"
+      - name: dev
+        type: boolean
+        default: false
+        description: "Install as dev dependency"
+    security:
+      - "Requires confirmation"
+    returns:
+      type: object
+      properties:
+        installed: string
+        version: string
+
+  # ----------------------------------------
+  # Docker Tools
+  # ----------------------------------------
+  docker_build:
+    name: "Docker Build"
+    module: "lmagent.tools.docker_tool"
+    class: "DockerBuildTool"
+    description: "Build Docker image"
+    category: "infrastructure"
+    parameters:
+      - name: dockerfile
+        type: string
+        default: "Dockerfile"
+      - name: tag
+        type: string
+        required: true
+        description: "Image tag"
+      - name: context
+        type: string
+        default: "."
+    returns:
+      type: object
+      properties:
+        image_id: string
+        tag: string
+        size_mb: number
+
+  docker_compose:
+    name: "Docker Compose"
+    module: "lmagent.tools.docker_tool"
+    class: "DockerComposeTool"
+    description: "Run docker-compose commands"
+    category: "infrastructure"
+    parameters:
+      - name: action
+        type: string
+        enum: [up, down, restart, logs, ps]
+        required: true
+      - name: service
+        type: string
+        required: false
+        description: "Specific service (optional)"
+      - name: detach
+        type: boolean
+        default: true
+    returns:
+      type: object
+      properties:
+        success: boolean
+        output: string
+
+# ============================================
+# Categories Update
+# ============================================
+
+categories:
+  system:
+    name: "System & Shell"
+    description: "Shell commands and system operations"
+    icon: "💻"
+  
+  git:
+    name: "Git Operations"
+    description: "Version control operations"
+    icon: "📦"
+  
+  quality:
+    name: "Code Quality"
+    description: "Linting, formatting, type checking"
+    icon: "✨"
+  
+  testing:
+    name: "Testing"
+    description: "Test execution and coverage"
+    icon: "🧪"
+  
+  composite:
+    name: "Composite Actions"
+    description: "Multi-step automated operations"
+    icon: "🔄"
+  
+  infrastructure:
+    name: "Infrastructure"
+    description: "Docker, deployment, infrastructure"
+    icon: "🏗️"

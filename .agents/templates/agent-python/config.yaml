@@ -1,0 +1,76 @@
+# Agent Configuration
+# Template de configuración para un agente LMAgent
+
+# Información básica
+name: "my_agent"
+display_name: "My Agent"
+description: "Descripción de lo que hace el agente"
+version: "3.6.0"
+
+# Configuración de LLM
+llm:
+  provider: "openai"          # openai, anthropic, google
+  model: "gpt-4o"             # Modelo específico
+  temperature: 0.7            # 0-1, más bajo = más determinístico
+  max_tokens: 4096            # Máximo de tokens por respuesta
+
+# Límites
+limits:
+  max_iterations: 10          # Máximo de pasos del agente
+  max_cost: 2.00              # USD máximo por ejecución
+  timeout_seconds: 300        # Timeout total
+
+# System prompt
+system_prompt:
+  file: "prompts/system.md"   # Archivo con el prompt
+  # O inline:
+  # content: |
+  #   You are an AI assistant...
+
+# Herramientas disponibles
+tools:
+  # Herramientas del registry global
+  from_registry:
+    - http_request
+    - file_read
+    - file_write
+    - file_search
+  
+  # Herramientas custom locales
+  custom:
+    - module: "tools.custom_tool"
+      class: "CustomTool"
+
+# Guardrails
+guardrails:
+  # Herramientas que requieren confirmación
+  require_confirmation:
+    - file_write
+    - http_request
+  
+  # Acciones bloqueadas
+  blocked_actions: []
+  
+  # Patrones de código peligrosos a bloquear
+  dangerous_patterns:
+    - "rm -rf"
+    - "DROP TABLE"
+
+# Logging
+logging:
+  level: "INFO"               # DEBUG, INFO, WARNING, ERROR
+  trajectory: true            # Guardar trajectory completo
+  cost_tracking: true         # Trackear costos
+
+# Variables de entorno requeridas
+required_env:
+  - OPENAI_API_KEY            # API key del proveedor LLM
+  # - CUSTOM_API_KEY          # Agregar variables custom
+
+# Metadata
+metadata:
+  author: "Tu Nombre"
+  created_at: "2024-01-01"
+  tags:
+    - "automation"
+    - "ai-agent"

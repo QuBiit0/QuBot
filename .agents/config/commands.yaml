@@ -1,0 +1,194 @@
+# LMAgent CLI Configuration
+
+# Este archivo configura el CLI de LMAgent para comandos rápidos
+
+# ============================================
+# ALIASES DE COMANDOS
+# ============================================
+
+aliases:
+  # Personas
+  pm: "persona:product-manager"
+  product: "persona:product-manager"
+  arch: "persona:architect"
+  architect: "persona:architect"
+  dev: "persona:backend-engineer"
+  backend: "persona:backend-engineer"
+  auto: "persona:automation-engineer"
+  n8n: "persona:automation-engineer"
+  ai: "persona:ai-agent-engineer"
+  agent: "persona:ai-agent-engineer"
+  qa: "persona:qa-engineer"
+  test: "persona:qa-engineer"
+  sec: "persona:security-analyst"
+  security: "persona:security-analyst"
+  sm: "persona:scrum-master"
+  scrum: "persona:scrum-master"
+  orch: "persona:orchestrator"
+  orchestrator: "persona:orchestrator"
+  
+  # Nuevas personas
+  ux: "persona:ux-ui-designer"
+  ui: "persona:ux-ui-designer"
+  design: "persona:ux-ui-designer"
+  frontend: "persona:frontend-engineer"
+  fe: "persona:frontend-engineer"
+  devops: "persona:devops-engineer"
+  ops: "persona:devops-engineer"
+  dba: "persona:data-engineer"
+  db: "persona:data-engineer"
+  data: "persona:data-engineer"
+  lead: "persona:tech-lead"
+  tl: "persona:tech-lead"
+  writer: "persona:technical-writer"
+  docs: "persona:technical-writer"
+  mobile: "persona:mobile-engineer"
+  rn: "persona:mobile-engineer"
+  perf: "persona:performance-engineer"
+  performance: "persona:performance-engineer"
+
+  # Metodologías
+  bmad: "persona:bmad-methodology"
+  kickoff: "persona:bmad-methodology"
+  classify: "persona:bmad-methodology"
+  swe: "persona:swe-agent"
+  issue-solve: "persona:swe-agent"
+  trajectory: "persona:swe-agent"
+  spec-dev: "persona:spec-driven-dev"
+  sdd-skill: "persona:spec-driven-dev"
+  spec-method: "persona:spec-driven-dev"
+
+  # Workflows
+  new-auto: "workflow:new-automation"
+  new-agent: "workflow:new-agent-ia"
+  fix: "workflow:bugfix-backend"
+  perf: "workflow:optimize-performance"
+  issue: "workflow:resolve-github-issue"
+  security-review: "workflow:security-review"
+  prd: "workflow:generate-prd"
+  brainstorm: "workflow:ideation"
+  spec: "workflow:spec-driven"
+  feature: "workflow:new-feature"
+
+  # Modos
+  yolo: "mode:yolo"
+  verbose: "mode:verbose"
+  minimal: "mode:minimal"
+  plan: "mode:plan-only"
+  execute: "mode:execute"
+
+  # Niveles
+  l0: "level:0"
+  l1: "level:1"
+  l2: "level:2"
+  l3: "level:3"
+  l4: "level:4"
+
+# ============================================
+# CONFIGURACIÓN DE MODOS
+# ============================================
+
+modes:
+  yolo:
+    description: "Modo sin confirmaciones para Level 0-2"
+    settings:
+      ask_confirmation: false
+      max_auto_execute_level: 2
+      protected_patterns:
+        - "**/production/**"
+        - "**/.env"
+        - "**/migrations/**"
+
+  verbose:
+    description: "Respuestas detalladas con explicaciones"
+    settings:
+      verbosity: "detailed"
+      show_reasoning: true
+      show_alternatives: true
+
+  minimal:
+    description: "Respuestas concisas, solo lo esencial"
+    settings:
+      verbosity: "minimal"
+      show_reasoning: false
+      show_alternatives: false
+
+  plan-only:
+    description: "Solo crear plan, no ejecutar"
+    settings:
+      execute: false
+      create_plan: true
+      require_approval: true
+
+  execute:
+    description: "Ejecutar plan previamente aprobado"
+    settings:
+      execute: true
+      skip_planning: true
+
+# ============================================
+# COMBINACIONES COMUNES
+# ============================================
+
+combinations:
+  # Desarrollo rápido
+  quick-fix:
+    aliases: ["qf", "quickfix"]
+    applies:
+      - "mode:yolo"
+      - "persona:backend-engineer"
+      - "level:1"
+
+  # Code review
+  review:
+    aliases: ["cr", "code-review"]
+    applies:
+      - "persona:backend-engineer"
+      - "persona:qa-engineer"
+      - "mode:verbose"
+
+  # Diseño técnico
+  design:
+    aliases: ["td", "tech-design"]
+    applies:
+      - "persona:architect"
+      - "mode:plan-only"
+      - "level:3"
+
+  # Seguridad
+  audit:
+    aliases: ["sa", "security-audit"]
+    applies:
+      - "persona:security-analyst"
+      - "workflow:security-review"
+      - "mode:verbose"
+
+  # Full automation
+  automate:
+    applies:
+      - "persona:automation-engineer"
+      - "persona:backend-engineer"
+      - "workflow:new-automation"
+
+# ============================================
+# PARSING RULES
+# ============================================
+
+parsing:
+  # Prefijo para comandos
+  command_prefix: "/"
+  
+  # Separador entre múltiples comandos
+  command_separator: " "
+  
+  # Case sensitivity
+  case_sensitive: false
+  
+  # Permitir comandos en cualquier posición del input
+  allow_inline_commands: true
+  
+  # Ejemplo de parsing:
+  # Input: "/yolo /dev fix the bug in auth.py"
+  # Parsed:
+  #   commands: ["yolo", "dev"]
+  #   task: "fix the bug in auth.py"

@@ -1,0 +1,320 @@
+# Plan Template (SPEC DRIVEN Development)
+# LMAgent Framework v3.0 - SPEC+LM Methodology
+#
+# This template creates an implementation plan from a spec.yaml.
+# It defines HOW to build what the spec defined (WHAT).
+# Use with `/arch` persona.
+#
+# Usage:
+#   1. Requires: specs/[feature-name]/spec.yaml (approved)
+#   2. Copy to: specs/[feature-name]/plan.yaml
+#   3. Get approval before proceeding to tasks.yaml
+
+---
+metadata:
+  title: "Implementation Plan: [Feature Name]"
+  spec_reference: "specs/[feature-name]/spec.yaml"
+  spec_version: "1.0"
+  plan_version: "1.0"
+  author: "[Architect Name or Agent ID]"
+  created: "[YYYY-MM-DD]"
+  status: draft  # draft | review | approved
+
+# ============================================
+# ARCHITECTURE DECISIONS
+# ============================================
+
+architecture:
+  # High-level approach
+  approach: "[Describe the technical approach]"
+  
+  # Architecture style
+  style: microservices  # monolith | microservices | serverless | hybrid
+  
+  # Key patterns used
+  patterns:
+    - name: "Repository Pattern"
+      rationale: "[Why using this pattern]"
+    - name: "Event-Driven"
+      rationale: "[Why using this pattern]"
+  
+  # ADRs (Architecture Decision Records)
+  decisions:
+    - id: "ADR-001"
+      title: "[Decision title]"
+      status: proposed  # proposed | accepted | deprecated
+      context: "[Why this decision is needed]"
+      decision: "[What was decided]"
+      consequences:
+        positive:
+          - "[Benefit 1]"
+        negative:
+          - "[Trade-off 1]"
+        risks:
+          - "[Risk to monitor]"
+
+# ============================================
+# SYSTEM DESIGN
+# ============================================
+
+components:
+  - name: "[Component Name]"
+    type: service  # service | database | queue | cache | external
+    responsibility: "[What this component does]"
+    technology: "[Tech stack]"
+    owner_persona: "/dev"  # Which LMAgent persona owns this
+    
+  - name: "[Database Name]"
+    type: database
+    responsibility: "[Data it stores]"
+    technology: "PostgreSQL 16"
+    schemas:
+      - name: "[table_name]"
+        description: "[Purpose]"
+
+# Data flow
+data_flow:
+  - from: "[Component A]"
+    to: "[Component B]"
+    method: REST  # REST | gRPC | event | queue
+    data: "[What data flows]"
+
+# Diagram (Mermaid format for rendering)
+diagram: |
+  graph TB
+      subgraph "Frontend"
+          A[Web App]
+      end
+      
+      subgraph "Backend"
+          B[API Service]
+          C[Worker]
+      end
+      
+      subgraph "Data"
+          D[(PostgreSQL)]
+          E[(Redis)]
+      end
+      
+      A -->|REST| B
+      B -->|Queue| C
+      B --> D
+      B --> E
+      C --> D
+
+# ============================================
+# IMPLEMENTATION PHASES
+# ============================================
+
+phases:
+  - phase: 1
+    name: "Foundation & Setup"
+    description: "[What this phase establishes]"
+    estimated_time: "4h"
+    personas: ["/dev"]
+    deliverables:
+      - "Project structure created"
+      - "Database schema migrated"
+      - "Base configurations set"
+    validation:
+      - "All services start without errors"
+      - "Database migrations run successfully"
+    blocks: [2, 3]  # Which phases this blocks
+    
+  - phase: 2
+    name: "Core Logic"
+    description: "[Main business logic implementation]"
+    estimated_time: "8h"
+    personas: ["/dev"]
+    deliverables:
+      - "Service layer implemented"
+      - "Unit tests passing (>80%)"
+    validation:
+      - "All unit tests pass"
+      - "Coverage >80%"
+    depends_on: [1]
+    blocks: [3, 4]
+    
+  - phase: 3
+    name: "API Layer"
+    description: "[REST/GraphQL endpoints]"
+    estimated_time: "4h"
+    personas: ["/dev"]
+    deliverables:
+      - "Endpoints implemented"
+      - "OpenAPI docs generated"
+      - "Integration tests passing"
+    validation:
+      - "All endpoints respond correctly"
+      - "Swagger/OpenAPI available"
+    depends_on: [2]
+    
+  - phase: 4
+    name: "Integration & Polish"
+    description: "[Connect everything, polish]"
+    estimated_time: "4h"
+    personas: ["/dev", "/qa"]
+    deliverables:
+      - "E2E tests passing"
+      - "Performance benchmarks met"
+    validation:
+      - "All acceptance criteria met"
+      - "No critical bugs"
+    depends_on: [2, 3]
+
+# ============================================
+# DEPENDENCIES MAP
+# ============================================
+
+dependencies:
+  # User story execution order
+  user_story_order:
+    - story_id: "US-001"
+      depends_on: []
+      blocks: ["US-002"]
+    - story_id: "US-002"
+      depends_on: ["US-001"]
+      blocks: []
+  
+  # Phase dependencies (critical path)
+  critical_path:
+    - phase: 1
+      slack: 0
+    - phase: 2
+      slack: 0
+    - phase: 3
+      slack: "2h"
+
+# ============================================
+# PARALLEL EXECUTION
+# ============================================
+
+parallel_execution:
+  enabled: true
+  groups:
+    - phase: 3
+      parallel_tasks:
+        group_a:
+          tasks: ["API endpoints", "Auth middleware"]
+          rationale: "Independent concerns"
+        group_b:
+          tasks: ["Tests", "Docs"]
+          rationale: "Can run alongside implementation"
+    
+    - phase: 4
+      parallel_tasks:
+        group_a:
+          tasks: ["E2E tests", "Performance tests"]
+          rationale: "Different test types"
+
+# ============================================
+# SECURITY CONSIDERATIONS
+# ============================================
+
+security:
+  authentication:
+    method: "[JWT | Session | OAuth2]"
+    provider: "[Service/library]"
+    
+  authorization:
+    model: "[RBAC | ABAC | ACL]"
+    roles: ["admin", "user", "guest"]
+    
+  data_protection:
+    encryption_at_rest: true
+    encryption_in_transit: true
+    pii_handling: "[How PII is protected]"
+    
+  vulnerabilities_addressed:
+    - "[OWASP Top 10 consideration 1]"
+    - "[OWASP Top 10 consideration 2]"
+
+# ============================================
+# OBSERVABILITY
+# ============================================
+
+observability:
+  logging:
+    level: INFO
+    format: json
+    sensitive_fields_masked: ["password", "token", "ssn"]
+    
+  metrics:
+    - name: "request_duration"
+      type: histogram
+      labels: ["endpoint", "status"]
+    - name: "active_users"
+      type: gauge
+      
+  alerts:
+    - name: "High Error Rate"
+      condition: "error_rate > 5%"
+      severity: critical
+      notify: ["#alerts-channel"]
+
+# ============================================
+# ROLLBACK PLAN
+# ============================================
+
+rollback:
+  triggers:
+    - "Error rate > 10%"
+    - "P95 latency > 2s"
+    - "Data corruption detected"
+    - "Critical security issue"
+    
+  steps:
+    - step: 1
+      action: "Halt deployment"
+      command: "[deployment pause command]"
+    - step: 2
+      action: "Revert to previous version"
+      command: "[rollback command]"
+    - step: 3
+      action: "Verify rollback"
+      validation: "[Health check]"
+    - step: 4
+      action: "Notify stakeholders"
+      template: "[Communication template]"
+  
+  data_rollback:
+    strategy: "[backup restore | reverse migration | manual]"
+    max_data_loss: "[RPO: X minutes]"
+
+# ============================================
+# RESOURCE ESTIMATES
+# ============================================
+
+resources:
+  team:
+    - role: "Backend Engineer"
+      allocation: "100%"
+      duration: "[X days]"
+    - role: "QA Engineer"
+      allocation: "50%"
+      duration: "[X days]"
+  
+  infrastructure:
+    - resource: "[Cloud resource]"
+      estimated_cost: "$X/month"
+    
+  total_estimated_effort: "[X person-days]"
+  total_estimated_cost: "$[X]"
+
+# ============================================
+# VALIDATION CHECKLIST
+# ============================================
+
+validation:
+  pre_implementation:
+    - "[ ] Spec approved"
+    - "[ ] Architecture reviewed"
+    - "[ ] Security reviewed"
+    - "[ ] Resources allocated"
+    
+  post_implementation:
+    - "[ ] All acceptance criteria met"
+    - "[ ] Tests passing (>80% coverage)"
+    - "[ ] Documentation updated"
+    - "[ ] Security scan passed"
+    - "[ ] Performance benchmarks met"

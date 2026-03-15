@@ -1,0 +1,117 @@
+# Checkpoint & Backup System
+# LMAgent Framework v3.0 - Ultra-Robust State Persistence
+#
+# Este archivo define el sistema de checkpoints automáticos y backups
+# para garantizar que NUNCA se pierda el estado del proyecto.
+#
+# UBICACIÓN: .lmagent/checkpoints/ (directorio)
+
+---
+
+# ═══════════════════════════════════════════════════════════════════════════
+#                    SISTEMA DE CHECKPOINTS AUTOMÁTICOS
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# El agente debe crear un checkpoint en estos momentos:
+#
+# 1. FASE COMPLETADA
+#    - Después de aprobar spec.yaml → checkpoint "phase_specify_complete"
+#    - Después de aprobar plan.yaml → checkpoint "phase_plan_complete"
+#    - Después de crear tasks.yaml → checkpoint "phase_tasks_complete"
+#    - Después de verificar → checkpoint "phase_verify_complete"
+#
+# 2. TASK COMPLETADA
+#    - Después de completar cada task → checkpoint "task_T00X_complete"
+#
+# 3. DECISIÓN IMPORTANTE
+#    - Después de decisiones arquitectónicas → checkpoint "decision_DXXX"
+#
+# 4. SESIÓN FINALIZADA
+#    - Cuando el usuario cierra la sesión → checkpoint "session_X_end"
+
+# ═══════════════════════════════════════════════════════════════════════════
+#                          ESTRUCTURA DE CHECKPOINT
+# ═══════════════════════════════════════════════════════════════════════════
+
+checkpoint:
+  id: "chk_20260123_143052"  # Formato: chk_YYYYMMDD_HHMMSS
+  created_at: "2026-01-23T14:30:52"
+  trigger: "task_complete"  # phase_complete | task_complete | decision | session_end | manual
+  
+  # Qué disparó este checkpoint
+  trigger_details:
+    type: "task"
+    id: "T002"
+    title: "Crear endpoint GET /users"
+  
+  # Snapshot del estado completo
+  state_snapshot:
+    current_phase: "implement"
+    spec_status: "approved"
+    plan_status: "approved"
+    tasks_total: 15
+    tasks_completed: 2
+    tasks_in_progress: 1
+    tasks_pending: 12
+    current_task_id: "T003"
+  
+  # Archivos que cambiaron desde el último checkpoint
+  changed_files:
+    - path: "src/models/user.py"
+      action: "created"
+    - path: "src/api/users.py"
+      action: "modified"
+    - path: "tests/test_users.py"
+      action: "created"
+  
+  # Resumen en lenguaje natural (para que cualquier LLM entienda rápido)
+  summary: |
+    Fase: Implementación
+    Completé: T002 - Endpoint GET /users
+    Creé: user.py, users.py, test_users.py
+    Próximo: T003 - Endpoint POST /users
+    Tests passing: 5/5
+
+# ═══════════════════════════════════════════════════════════════════════════
+#                       INSTRUCCIONES PARA EL AGENTE
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# 🤖 CREAR CHECKPOINT:
+#
+# Después de cada milestone significativo, ejecuta:
+#
+# ```python
+# checkpoint = {
+#     "id": f"chk_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+#     "created_at": datetime.now().isoformat(),
+#     "trigger": "task_complete",  # o el trigger correspondiente
+#     "trigger_details": {...},
+#     "state_snapshot": {...},
+#     "changed_files": [...],
+#     "summary": "..."
+# }
+# 
+# # Guardar en .lmagent/checkpoints/chk_YYYYMMDD_HHMMSS.yaml
+# ```
+#
+# 🤖 RECUPERAR DE CHECKPOINT:
+#
+# Si el usuario dice "algo salió mal" o "volver atrás":
+#
+# 1. Listar checkpoints: ls .lmagent/checkpoints/
+# 2. Mostrar últimos 5 al usuario
+# 3. El usuario elige uno
+# 4. Leer ese checkpoint y restaurar el estado
+#
+# ═══════════════════════════════════════════════════════════════════════════
+#                          POLÍTICA DE RETENCIÓN
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# Mantener:
+# - Últimos 20 checkpoints de tasks
+# - Todos los checkpoints de fases (nunca borrar)
+# - Últimos 10 checkpoints de sesión
+#
+# Limpiar automáticamente cuando hay más de 50 checkpoints totales.
+#
+# ═══════════════════════════════════════════════════════════════════════════
