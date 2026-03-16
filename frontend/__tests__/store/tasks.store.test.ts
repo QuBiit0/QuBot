@@ -8,7 +8,7 @@ const makeTask = (overrides: Partial<Task> = {}): Task => ({
   id: Math.random().toString(36).slice(2),
   title: 'Test Task',
   status: 'BACKLOG' as TaskStatus,
-  priority: 'medium',
+  priority: 'MEDIUM' as Task['priority'],
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
   tags: [],
@@ -52,7 +52,7 @@ describe('useTasksStore', () => {
       const task = makeTask({ id: 't1', title: 'Old' });
       useTasksStore.setState({ tasks: { t1: task } });
       useTasksStore.getState().updateTask('t1', { title: 'New' });
-      expect(useTasksStore.getState().tasks['t1'].title).toBe('New');
+      expect(useTasksStore.getState().tasks['t1']!.title).toBe('New');
     });
 
     it('is a no-op for nonexistent task', () => {
@@ -75,7 +75,7 @@ describe('useTasksStore', () => {
       const task = makeTask({ id: 'mv', status: 'BACKLOG' as TaskStatus });
       useTasksStore.setState({ tasks: { mv: task } });
       useTasksStore.getState().moveTask('mv', 'IN_PROGRESS' as TaskStatus);
-      expect(useTasksStore.getState().tasks['mv'].status).toBe('IN_PROGRESS');
+      expect(useTasksStore.getState().tasks['mv']!.status).toBe('IN_PROGRESS');
     });
 
     it('is a no-op for nonexistent task', () => {

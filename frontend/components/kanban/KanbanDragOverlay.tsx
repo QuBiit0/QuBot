@@ -8,12 +8,11 @@ interface KanbanDragOverlayProps {
   task: Task;
 }
 
-const priorityColors: Record<number, string> = {
-  1: 'bg-red-500',
-  2: 'bg-orange-500',
-  3: 'bg-yellow-500',
-  4: 'bg-blue-500',
-  5: 'bg-slate-500',
+const priorityColors: Record<string, string> = {
+  CRITICAL: 'bg-red-500',
+  HIGH: 'bg-orange-500',
+  MEDIUM: 'bg-yellow-500',
+  LOW: 'bg-blue-500',
 };
 
 export function KanbanDragOverlay({ task }: KanbanDragOverlayProps) {

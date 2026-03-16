@@ -22,7 +22,7 @@ describe('useActivityStore', () => {
     it('adds an entry to the front of the list', () => {
       const entry = makeEntry({ message: 'hello' });
       useActivityStore.getState().addEntry(entry);
-      expect(useActivityStore.getState().entries[0]).toEqual(entry);
+      expect(useActivityStore.getState().entries[0]!).toEqual(entry);
     });
 
     it('does not add when paused', () => {
@@ -42,7 +42,7 @@ describe('useActivityStore', () => {
       const second = makeEntry({ message: 'second' });
       useActivityStore.getState().addEntry(first);
       useActivityStore.getState().addEntry(second);
-      expect(useActivityStore.getState().entries[0].message).toBe('second');
+      expect(useActivityStore.getState().entries[0]!.message).toBe('second');
     });
   });
 
@@ -87,7 +87,7 @@ describe('useActivityStore', () => {
       useActivityStore.getState().setFilter('error');
       const filtered = useActivityStore.getState().getFilteredEntries();
       expect(filtered).toHaveLength(1);
-      expect(filtered[0].severity).toBe('error');
+      expect(filtered[0]!.severity).toBe('error');
     });
   });
 

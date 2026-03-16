@@ -115,7 +115,7 @@ export interface NavItem {
 }
 
 // Domain configuration
-export const PRIORITY_CONFIG: Record<string, { label: string; color: string }> = {
+export const PRIORITY_CONFIG: Record<'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL', { label: string; color: string }> = {
   LOW: { label: 'Low', color: '#8b949e' },
   MEDIUM: { label: 'Medium', color: '#58a6ff' },
   HIGH: { label: 'High', color: '#f0a500' },
