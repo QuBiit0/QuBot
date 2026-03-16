@@ -104,7 +104,7 @@ export function useDeleteTask() {
   const removeTask = useTasksStore((s) => s.removeTask);
 
   return useMutation({
-    mutationFn: api.deleteAgent,
+    mutationFn: api.deleteTask,
     onSuccess: (_, id) => {
       removeTask(id);
       queryClient.invalidateQueries({ queryKey: ['tasks'] });

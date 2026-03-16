@@ -1,17 +1,12 @@
 'use client';
 
-import { useEffect } from 'react';
 import { KanbanBoard } from '@/components/kanban/KanbanBoard';
+import { useAgents } from '@/hooks/useAgents';
+import { useTasks } from '@/hooks/useTasks';
 
 export default function MissionControlPage() {
-  // Initialize mock data
-  useEffect(() => {
-    const init = async () => {
-      const { initializeMockData } = await import('@/lib/mock-data');
-      initializeMockData();
-    };
-    init();
-  }, []);
+  useAgents();
+  useTasks();
 
   return (
     <div className="h-full p-6">
