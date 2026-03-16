@@ -1,34 +1,31 @@
 """
 Pytest configuration and shared fixtures
 """
+
+import os
+import sys
+
 import pytest
 import pytest_asyncio
 from fastapi.testclient import TestClient
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel
-
-import sys
-import os
 
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app.main import app
 from app.database import get_session
-from app.config import settings
+from app.main import app
 
 # Test database URL - use SQLite for unit tests, PostgreSQL for integration
 TEST_DATABASE_URL = os.getenv(
-    "TEST_DATABASE_URL",
-    "postgresql+asyncpg://qubot:test@localhost:5432/qubot_test"
+    "TEST_DATABASE_URL", "postgresql+asyncpg://qubot:test@localhost:5432/qubot_test"
 )
 
 # Create test engine
 engine = create_async_engine(TEST_DATABASE_URL, echo=False)
-TestingSessionLocal = sessionmaker(
-    engine, class_=AsyncSession, expire_on_commit=False
-)
+TestingSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
 @pytest_asyncio.fixture(scope="session")
@@ -37,9 +34,9 @@ async def setup_database():
     # Create tables
     async with engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.create_all)
-    
+
     yield
-    
+
     # Cleanup - drop tables
     async with engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.drop_all)
@@ -57,15 +54,16 @@ async def db_session(setup_database):
 @pytest.fixture
 def client(db_session):
     """Create a test client with database override"""
+
     async def override_get_session():
         yield db_session
-    
+
     # Override dependency
     app.dependency_overrides[get_session] = override_get_session
-    
+
     with TestClient(app) as test_client:
         yield test_client
-    
+
     # Clean up
     app.dependency_overrides.clear()
 
@@ -86,13 +84,16 @@ def auth_headers(client, test_user_data):
     """Get authentication headers for a test user"""
     # Register user
     client.post("/api/v1/auth/register", json=test_user_data)
-    
+
     # Login
-    response = client.post("/api/v1/auth/login", json={
-        "email": test_user_data["email"],
-        "password": test_user_data["password"],
-    })
-    
+    response = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": test_user_data["email"],
+            "password": test_user_data["password"],
+        },
+    )
+
     token = response.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
 

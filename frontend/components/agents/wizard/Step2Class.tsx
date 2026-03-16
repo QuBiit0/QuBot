@@ -105,11 +105,11 @@ export function Step2Class({ data, onChange }: Step2ClassProps) {
                 <div
                   className="w-10 h-10 rounded-lg flex items-center justify-center text-xl flex-shrink-0"
                   style={{
-                    backgroundColor: cls.default_avatar_config.color_primary + '20',
-                    border: `1px solid ${cls.default_avatar_config.color_primary}40`,
+                    backgroundColor: (cls.default_avatar_config?.color_primary ?? '#3b82f6') + '20',
+                    border: `1px solid ${cls.default_avatar_config?.color_primary ?? '#3b82f6'}40`,
                   }}
                 >
-                  {cls.default_avatar_config.icon}
+                  {cls.default_avatar_config?.icon}
                 </div>
                 <div className="min-w-0">
                   <h3 className="font-medium text-[#e6edf3] text-sm truncate">{cls.name}</h3>
@@ -119,11 +119,11 @@ export function Step2Class({ data, onChange }: Step2ClassProps) {
                   <span
                     className="inline-block mt-1 text-[9px] px-1.5 py-0.5 rounded font-medium"
                     style={{
-                      backgroundColor: cls.default_avatar_config.color_primary + '20',
-                      color: cls.default_avatar_config.color_primary,
+                      backgroundColor: (cls.default_avatar_config?.color_primary ?? '#3b82f6') + '20',
+                      color: cls.default_avatar_config?.color_primary ?? '#3b82f6',
                     }}
                   >
-                    {cls.default_avatar_config.badge}
+                    {cls.default_avatar_config?.badge}
                   </span>
                 </div>
               </div>

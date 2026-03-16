@@ -141,7 +141,7 @@ export default function AgentsPage() {
                     <div
                       className={cn(
                         'w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg',
-                        domainColors[agent.domain?.toLowerCase()] || 'bg-blue-500'
+                        domainColors[agent.domain?.toLowerCase() ?? ''] || 'bg-blue-500'
                       )}
                     >
                       {agent.name.charAt(0).toUpperCase()}

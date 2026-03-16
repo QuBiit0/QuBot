@@ -1,10 +1,12 @@
 """
 Agent Service - Business logic for agent management
 """
-from typing import List, Optional
+
 from uuid import UUID
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
+
 from ..models.agent import Agent, AgentClass, AgentTool
 from ..models.enums import AgentStatusEnum
 
@@ -43,46 +45,40 @@ class AgentService:
         await self.session.refresh(agent)
         return agent
 
-    async def get_agent(self, agent_id: UUID) -> Optional[Agent]:
+    async def get_agent(self, agent_id: UUID) -> Agent | None:
         """Get agent by ID"""
-        result = await self.session.execute(
-            select(Agent).where(Agent.id == agent_id)
-        )
+        result = await self.session.execute(select(Agent).where(Agent.id == agent_id))
         return result.scalar_one_or_none()
 
     async def get_agents(
         self,
-        status: Optional[AgentStatusEnum] = None,
-        domain: Optional[str] = None,
+        status: AgentStatusEnum | None = None,
+        domain: str | None = None,
         skip: int = 0,
         limit: int = 100,
-    ) -> List[Agent]:
+    ) -> list[Agent]:
         """Get list of agents with optional filters"""
         query = select(Agent)
-        
+
         if status:
             query = query.where(Agent.status == status)
         if domain:
             query = query.where(Agent.domain == domain)
-        
+
         query = query.offset(skip).limit(limit)
         result = await self.session.execute(query)
         return result.scalars().all()
 
-    async def update_agent(
-        self,
-        agent_id: UUID,
-        **updates
-    ) -> Optional[Agent]:
+    async def update_agent(self, agent_id: UUID, **updates) -> Agent | None:
         """Update agent fields"""
         agent = await self.get_agent(agent_id)
         if not agent:
             return None
-        
+
         for key, value in updates.items():
             if hasattr(agent, key):
                 setattr(agent, key, value)
-        
+
         await self.session.commit()
         await self.session.refresh(agent)
         return agent
@@ -92,7 +88,7 @@ class AgentService:
         agent = await self.get_agent(agent_id)
         if not agent:
             return False
-        
+
         agent.status = AgentStatusEnum.OFFLINE
         await self.session.commit()
         return True
@@ -101,17 +97,17 @@ class AgentService:
         self,
         agent_id: UUID,
         status: AgentStatusEnum,
-        current_task_id: Optional[UUID] = None,
-    ) -> Optional[Agent]:
+        current_task_id: UUID | None = None,
+    ) -> Agent | None:
         """Update agent status and optionally current task"""
         agent = await self.get_agent(agent_id)
         if not agent:
             return None
-        
+
         agent.status = status
         if current_task_id is not None:
             agent.current_task_id = current_task_id
-        
+
         await self.session.commit()
         await self.session.refresh(agent)
         return agent
@@ -132,7 +128,23 @@ class AgentService:
         await self.session.commit()
         return agent_tool
 
-    async def get_agent_tools(self, agent_id: UUID) -> List[AgentTool]:
+    async def unassign_tool(self, agent_id: UUID, tool_id: UUID) -> bool:
+        """Remove a tool assignment from an agent"""
+        result = await self.session.execute(
+            select(AgentTool).where(
+                AgentTool.agent_id == agent_id,
+                AgentTool.tool_id == tool_id,
+            )
+        )
+        agent_tool = result.scalar_one_or_none()
+        if not agent_tool:
+            return False
+
+        await self.session.delete(agent_tool)
+        await self.session.commit()
+        return True
+
+    async def get_agent_tools(self, agent_id: UUID) -> list[AgentTool]:
         """Get all tools assigned to an agent"""
         result = await self.session.execute(
             select(AgentTool).where(AgentTool.agent_id == agent_id)
@@ -142,21 +154,21 @@ class AgentService:
     # Agent Class methods
     async def get_agent_classes(
         self,
-        domain: Optional[str] = None,
-        is_custom: Optional[bool] = None,
-    ) -> List[AgentClass]:
+        domain: str | None = None,
+        is_custom: bool | None = None,
+    ) -> list[AgentClass]:
         """Get agent classes with optional filters"""
         query = select(AgentClass)
-        
+
         if domain:
             query = query.where(AgentClass.domain == domain)
         if is_custom is not None:
             query = query.where(AgentClass.is_custom == is_custom)
-        
+
         result = await self.session.execute(query)
         return result.scalars().all()
 
-    async def get_agent_class(self, class_id: UUID) -> Optional[AgentClass]:
+    async def get_agent_class(self, class_id: UUID) -> AgentClass | None:
         """Get agent class by ID"""
         result = await self.session.execute(
             select(AgentClass).where(AgentClass.id == class_id)
@@ -183,7 +195,7 @@ class AgentService:
         await self.session.refresh(agent_class)
         return agent_class
 
-    async def get_orchestrator(self) -> Optional[Agent]:
+    async def get_orchestrator(self) -> Agent | None:
         """Get the orchestrator agent"""
         result = await self.session.execute(
             select(Agent).where(Agent.is_orchestrator == True)

@@ -145,7 +145,7 @@ export function Step6Tools({ data, onChange }: Step6ToolsProps) {
       <div className="grid grid-cols-2 gap-3">
         {tools.map((tool, index) => {
           const isSelected = data.selectedTools.includes(tool.id);
-          const color = TOOL_COLORS[tool.type];
+          const color = TOOL_COLORS[tool.type ?? 'CUSTOM'];
 
           return (
             <motion.button
@@ -188,7 +188,7 @@ export function Step6Tools({ data, onChange }: Step6ToolsProps) {
                     color: color,
                   }}
                 >
-                  {TOOL_ICONS[tool.type]}
+                  {TOOL_ICONS[tool.type ?? 'CUSTOM']}
                 </div>
 
                 <div className="min-w-0 pr-6">
@@ -203,7 +203,7 @@ export function Step6Tools({ data, onChange }: Step6ToolsProps) {
                       color: color,
                     }}
                   >
-                    {tool.type.replace('_', ' ')}
+                    {(tool.type ?? 'CUSTOM').replace('_', ' ')}
                   </span>
                 </div>
               </div>

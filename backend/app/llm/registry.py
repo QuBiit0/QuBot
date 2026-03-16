@@ -1,12 +1,12 @@
-from typing import Dict, Type
-from .base import BaseLlmProvider
 from ..config import settings
+from .base import BaseLlmProvider
+
 
 class LlmProviderRegistry:
     def __init__(self):
-        self._providers: Dict[str, Type[BaseLlmProvider]] = {}
+        self._providers: dict[str, type[BaseLlmProvider]] = {}
 
-    def register(self, name: str, provider_class: Type[BaseLlmProvider]):
+    def register(self, name: str, provider_class: type[BaseLlmProvider]):
         self._providers[name] = provider_class
 
     def get_provider_instance(self, name: str, **kwargs) -> BaseLlmProvider:
@@ -14,8 +14,10 @@ class LlmProviderRegistry:
             raise ValueError(f"Proveedor LLM '{name}' no encontrado.")
         return self._providers[name](**kwargs)
 
+
 # Singleton registry
 llm_registry = LlmProviderRegistry()
+
 
 # Implementación rápida de OpenAI Provider (Placeholder para esta etapa)
 class OpenAIProvider(BaseLlmProvider):
@@ -29,6 +31,7 @@ class OpenAIProvider(BaseLlmProvider):
 
     async def test_connectivity(self):
         return bool(self.api_key)
+
 
 # Registrar proveedores iniciales
 llm_registry.register("openai", OpenAIProvider)

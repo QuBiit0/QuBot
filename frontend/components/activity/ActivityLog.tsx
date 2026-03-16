@@ -2,7 +2,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { useAppStore, ActivityEvent } from '@/store/app.store';
 
-const STATUS_CFG: Record<ActivityEvent['status'], {
+const STATUS_CFG: Record<NonNullable<ActivityEvent['status']>, {
   dot: string;
   badge: string;
   label: string;
@@ -50,8 +50,8 @@ function getAgentColor(name: string): string {
 }
 
 function LogRow({ event, isNew }: { event: ActivityEvent; isNew?: boolean }) {
-  const cfg = STATUS_CFG[event.status] ?? STATUS_CFG.working;
-  const agentColor = getAgentColor(event.agentName);
+  const cfg = STATUS_CFG[event.status ?? 'working'] ?? STATUS_CFG.working;
+  const agentColor = getAgentColor(event.agentName ?? '');
   const [expanded, setExpanded] = useState(false);
   const isLong = event.message.length > 60;
 
@@ -127,7 +127,7 @@ export default function ActivityLog() {
 
   useEffect(() => {
     if (activityLog.length > prevLenRef.current && activityLog.length > 0) {
-      const newId = activityLog[0].id;
+      const newId = activityLog[0]!.id;
       setNewEventIds(s => new Set([...s, newId]));
       setTimeout(() => setNewEventIds(s => { const n = new Set(s); n.delete(newId); return n; }), 2000);
       if (scrollRef.current) scrollRef.current.scrollTop = 0;
@@ -139,7 +139,8 @@ export default function ActivityLog() {
   const totalCount = activityLog.length > 0 ? activityLog.length : '—';
 
   const statusCounts = events.reduce<Record<string, number>>((acc, e) => {
-    acc[e.status] = (acc[e.status] ?? 0) + 1;
+    const key = e.status ?? 'working';
+    acc[key] = (acc[key] ?? 0) + 1;
     return acc;
   }, {});
 

@@ -2,13 +2,14 @@
 Seed database with initial data for Qubot
 Uses async SQLModel
 """
+
 import asyncio
 import logging
 from uuid import uuid4
 
 from app.database import AsyncSessionLocal
-from app.models.enums import DomainEnum, GenderEnum, AgentStatusEnum, LlmProviderEnum
 from app.models.agent import AgentClass
+from app.models.enums import DomainEnum, LlmProviderEnum
 from app.models.llm import LlmConfig
 
 logging.basicConfig(level=logging.INFO)
@@ -18,7 +19,7 @@ logger = logging.getLogger(__name__)
 async def seed_agent_classes(session):
     """Create default agent classes"""
     logger.info("Creating agent classes...")
-    
+
     classes = [
         {
             "id": uuid4(),
@@ -77,11 +78,11 @@ async def seed_agent_classes(session):
             "is_custom": False,
         },
     ]
-    
+
     for cls_data in classes:
         agent_class = AgentClass(**cls_data)
         session.add(agent_class)
-    
+
     await session.commit()
     logger.info(f"Created {len(classes)} agent classes")
 
@@ -89,7 +90,7 @@ async def seed_agent_classes(session):
 async def seed_llm_configs(session):
     """Create default LLM configurations"""
     logger.info("Creating LLM configs...")
-    
+
     configs = [
         {
             "id": uuid4(),
@@ -132,11 +133,11 @@ async def seed_llm_configs(session):
             "api_key_ref": "GROQ_API_KEY",
         },
     ]
-    
+
     for config_data in configs:
         config = LlmConfig(**config_data)
         session.add(config)
-    
+
     await session.commit()
     logger.info(f"Created {len(configs)} LLM configs")
 
@@ -144,21 +145,22 @@ async def seed_llm_configs(session):
 async def seed():
     """Main seed function"""
     logger.info("Starting database seeding...")
-    
+
     async with AsyncSessionLocal() as session:
         try:
             # Check if already seeded
             from sqlalchemy import select
+
             result = await session.execute(select(AgentClass).limit(1))
             if result.scalar_one_or_none():
                 logger.info("Database already seeded, skipping...")
                 return
-            
+
             await seed_agent_classes(session)
             await seed_llm_configs(session)
-            
+
             logger.info("Database seeding completed successfully!")
-            
+
         except Exception as e:
             await session.rollback()
             logger.error(f"Error seeding database: {e}")

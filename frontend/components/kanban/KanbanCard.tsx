@@ -10,7 +10,7 @@ interface KanbanCardProps {
   task: Task;
 }
 
-const priorityColors = {
+const priorityColors: Record<number, string> = {
   1: 'bg-red-500',
   2: 'bg-orange-500',
   3: 'bg-yellow-500',
@@ -18,7 +18,7 @@ const priorityColors = {
   5: 'bg-slate-500',
 };
 
-const priorityLabels = {
+const priorityLabels: Record<number, string> = {
   1: 'Critical',
   2: 'High',
   3: 'Medium',

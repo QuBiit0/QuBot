@@ -128,16 +128,18 @@ export function AgentWizard({ isOpen, onClose, onSuccess, onCreate }: AgentWizar
   const handleNext = () => {
     const stepOrder: Step[] = ['domain', 'class', 'profile', 'llm', 'skills', 'review'];
     const currentIndex = stepOrder.indexOf(step);
-    if (currentIndex < stepOrder.length - 1) {
-      setStep(stepOrder[currentIndex + 1]);
+    const nextStep = stepOrder[currentIndex + 1];
+    if (currentIndex < stepOrder.length - 1 && nextStep) {
+      setStep(nextStep);
     }
   };
-  
+
   const handleBack = () => {
     const stepOrder: Step[] = ['domain', 'class', 'profile', 'llm', 'skills', 'review'];
     const currentIndex = stepOrder.indexOf(step);
-    if (currentIndex > 0) {
-      setStep(stepOrder[currentIndex - 1]);
+    const prevStep = stepOrder[currentIndex - 1];
+    if (currentIndex > 0 && prevStep) {
+      setStep(prevStep);
     }
   };
   
@@ -398,7 +400,7 @@ export function AgentWizard({ isOpen, onClose, onSuccess, onCreate }: AgentWizar
                           key={provider.id}
                           onClick={() => setFormData({
                             ...formData,
-                            llm_config: { ...formData.llm_config, provider: provider.id, model: provider.models[0] }
+                            llm_config: { ...formData.llm_config, provider: provider.id, model: provider.models[0] ?? '' }
                           })}
                           className={cn(
                             'p-3 rounded-lg border text-left transition-colors',

@@ -1,20 +1,22 @@
 """
 Anthropic Provider - Implementation for Claude API
 """
+
 import os
 import time
-from typing import List, Optional, Dict, Any, AsyncGenerator
-import anthropic
+from collections.abc import AsyncGenerator
+from typing import Any
+
 from anthropic import AsyncAnthropic
 
-from .base import BaseLlmProvider, LlmResponse, ToolCall, ToolDefinition, FinishReason
+from .base import BaseLlmProvider, FinishReason, LlmResponse, ToolCall, ToolDefinition
 from .registry import register_provider
 
 
 @register_provider("anthropic")
 class AnthropicProvider(BaseLlmProvider):
     """Anthropic Claude API provider with tool-calling support"""
-    
+
     # Pricing per 1K tokens (as of 2024)
     PRICING = {
         "claude-3-5-sonnet-20241022": {"input": 0.003, "output": 0.015},
@@ -22,19 +24,19 @@ class AnthropicProvider(BaseLlmProvider):
         "claude-3-sonnet-20240229": {"input": 0.003, "output": 0.015},
         "claude-3-haiku-20240307": {"input": 0.00025, "output": 0.00125},
     }
-    
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._client = AsyncAnthropic(
             api_key=self.api_key or os.getenv("ANTHROPIC_API_KEY"),
             base_url=self.base_url,
         )
-    
+
     @property
     def provider_name(self) -> str:
         return "anthropic"
-    
-    def prepare_tools(self, tools: List[ToolDefinition]) -> List[Dict[str, Any]]:
+
+    def prepare_tools(self, tools: list[ToolDefinition]) -> list[dict[str, Any]]:
         """Convert to Anthropic tool format"""
         return [
             {
@@ -44,11 +46,11 @@ class AnthropicProvider(BaseLlmProvider):
             }
             for tool in tools
         ]
-    
+
     def format_messages(
         self,
-        messages: List[Dict[str, str]],
-        system_prompt: Optional[str] = None,
+        messages: list[dict[str, str]],
+        system_prompt: str | None = None,
     ) -> tuple:
         """
         Format messages for Anthropic API.
@@ -60,25 +62,27 @@ class AnthropicProvider(BaseLlmProvider):
             # Anthropic uses 'assistant' not 'model'
             if role == "model":
                 role = "assistant"
-            formatted.append({
-                "role": role,
-                "content": msg["content"],
-            })
-        
+            formatted.append(
+                {
+                    "role": role,
+                    "content": msg["content"],
+                }
+            )
+
         return system_prompt, formatted
-    
+
     async def complete(
         self,
-        messages: List[Dict[str, str]],
-        tools: Optional[List[ToolDefinition]] = None,
-        system_prompt: Optional[str] = None,
+        messages: list[dict[str, str]],
+        tools: list[ToolDefinition] | None = None,
+        system_prompt: str | None = None,
     ) -> LlmResponse:
         """Generate completion using Anthropic API"""
         start_time = time.time()
-        
+
         # Format messages
         system, formatted_messages = self.format_messages(messages, system_prompt)
-        
+
         # Prepare request params
         params = {
             "model": self.model,
@@ -87,34 +91,38 @@ class AnthropicProvider(BaseLlmProvider):
             "temperature": self.temperature,
             "top_p": self.top_p,
         }
-        
+
         if system:
             params["system"] = system
-        
+
         # Add tools if provided
         if tools:
             params["tools"] = self.prepare_tools(tools)
-        
+
         # Make request
         response = await self._client.messages.create(**params)
-        
+
         # Calculate latency
         latency_ms = int((time.time() - start_time) * 1000)
-        
+
         # Parse response
         content_text = None
         tool_calls = []
-        
+
         for block in response.content:
             if block.type == "text":
                 content_text = block.text
             elif block.type == "tool_use":
-                tool_calls.append(ToolCall.from_anthropic({
-                    "id": block.id,
-                    "name": block.name,
-                    "input": block.input,
-                }))
-        
+                tool_calls.append(
+                    ToolCall.from_anthropic(
+                        {
+                            "id": block.id,
+                            "name": block.name,
+                            "input": block.input,
+                        }
+                    )
+                )
+
         # Map stop reason
         finish_reason_map = {
             "end_turn": FinishReason.STOP,
@@ -122,7 +130,7 @@ class AnthropicProvider(BaseLlmProvider):
             "stop_sequence": FinishReason.STOP,
             "tool_use": FinishReason.TOOL_CALLS,
         }
-        
+
         return LlmResponse(
             content=content_text if not tool_calls else None,
             tool_calls=tool_calls,
@@ -143,16 +151,16 @@ class AnthropicProvider(BaseLlmProvider):
                 "usage": response.usage.model_dump(),
             },
         )
-    
+
     async def complete_stream(
         self,
-        messages: List[Dict[str, str]],
-        tools: Optional[List[ToolDefinition]] = None,
-        system_prompt: Optional[str] = None,
+        messages: list[dict[str, str]],
+        tools: list[ToolDefinition] | None = None,
+        system_prompt: str | None = None,
     ) -> AsyncGenerator[str, None]:
         """Generate streaming completion"""
         system, formatted_messages = self.format_messages(messages, system_prompt)
-        
+
         params = {
             "model": self.model,
             "messages": formatted_messages,
@@ -161,18 +169,18 @@ class AnthropicProvider(BaseLlmProvider):
             "top_p": self.top_p,
             "stream": True,
         }
-        
+
         if system:
             params["system"] = system
-        
+
         # Note: Streaming with tools has limitations
         if tools:
             params["tools"] = self.prepare_tools(tools)
-        
+
         async with self._client.messages.stream(**params) as stream:
             async for text in stream.text_stream:
                 yield text
-    
+
     async def get_token_count(self, text: str) -> int:
         """Estimate token count for Claude"""
         try:
@@ -185,24 +193,24 @@ class AnthropicProvider(BaseLlmProvider):
         except Exception:
             # Fallback: Claude uses ~4 chars per token
             return len(text) // 4
-    
+
     async def test_connection(self) -> bool:
         """Test API connectivity"""
         try:
-            response = await self._client.messages.create(
+            await self._client.messages.create(
                 model=self.model,
                 messages=[{"role": "user", "content": "Hi"}],
                 max_tokens=1,
             )
             return True
-        except Exception as e:
+        except Exception:
             return False
-    
+
     def _estimate_cost(self, input_tokens: int, output_tokens: int) -> float:
         """Calculate cost based on model pricing"""
         pricing = self.PRICING.get(self.model, {"input": 0, "output": 0})
-        
+
         input_cost = (input_tokens / 1000) * pricing["input"]
         output_cost = (output_tokens / 1000) * pricing["output"]
-        
+
         return round(input_cost + output_cost, 6)

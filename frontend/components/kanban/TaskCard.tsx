@@ -27,8 +27,8 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
     opacity: isDragging ? 0.5 : 1,
   };
 
-  const priorityConfig = PRIORITY_CONFIG[task.priority];
-  const domainConfig = task.domain_hint ? DOMAIN_CONFIG[task.domain_hint] : null;
+  const priorityConfig = PRIORITY_CONFIG[task.priority] ?? { label: 'Low', color: '#8b949e' };
+  const domainConfig = task.domain_hint ? DOMAIN_CONFIG[task.domain_hint as keyof typeof DOMAIN_CONFIG] : null;
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -113,7 +113,7 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
           {/* Date */}
           <div className="flex items-center gap-1 text-[11px] text-[#6e7681]">
             <Calendar className="w-3 h-3" />
-            <span>{formatDate(task.created_at)}</span>
+            <span>{formatDate(task.created_at ?? '')}</span>
           </div>
         </div>
       </div>

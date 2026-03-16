@@ -132,7 +132,10 @@ export function SkillEditor({ skill, isOpen, onClose, onSuccess }: SkillEditorPr
   
   const updateParameter = (index: number, updates: Partial<SkillParameter>) => {
     const updated = [...(formData.parameters || [])];
-    updated[index] = { ...updated[index], ...updates };
+    const existing = updated[index];
+    if (existing) {
+      updated[index] = { ...existing, ...updates };
+    }
     setFormData({ ...formData, parameters: updated });
   };
   

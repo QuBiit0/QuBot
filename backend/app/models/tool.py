@@ -1,16 +1,19 @@
 """
 Tool model - Registry of available tools/skills
 """
+
 from datetime import datetime
-from typing import Optional, List
 from uuid import UUID, uuid4
-from sqlmodel import SQLModel, Field, Column, Relationship
+
 from sqlalchemy import JSON, Index
+from sqlmodel import Column, Field, Relationship, SQLModel
+
 from .enums import ToolTypeEnum
 
 
 class Tool(SQLModel, table=True):
     """Registry of available tools/skills that agents can use"""
+
     __tablename__ = "tool"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -25,10 +28,8 @@ class Tool(SQLModel, table=True):
     is_dangerous: bool = Field(default=False)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
-    
+
     # Relationships
-    agent_assignments: List["AgentTool"] = Relationship(back_populates="tool")
-    
-    __table_args__ = (
-        Index("idx_tool_type", "type"),
-    )
+    agent_assignments: list["AgentTool"] = Relationship(back_populates="tool")
+
+    __table_args__ = (Index("idx_tool_type", "type"),)

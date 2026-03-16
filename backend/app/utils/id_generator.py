@@ -1,17 +1,17 @@
 """
 ID Generator utilities
 """
+
 import uuid
-from typing import Optional
 
 
-def generate_id(prefix: Optional[str] = None) -> str:
+def generate_id(prefix: str | None = None) -> str:
     """
     Generate a unique ID.
-    
+
     Args:
         prefix: Optional prefix for the ID (e.g., 'agent', 'task')
-        
+
     Returns:
         A unique string ID
     """

@@ -1,50 +1,51 @@
 """
 LLM Service - Business logic for LLM configuration and cost tracking
 """
+
 import os
-from typing import List, Optional, Dict, Any, AsyncGenerator
-from uuid import UUID
+from collections.abc import AsyncGenerator
 from datetime import datetime, timedelta
+from uuid import UUID
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from ..models.llm import LlmConfig, LlmCallLog
-from ..models.enums import LlmProviderEnum
 from ..core.providers import (
-    get_provider_registry,
     LlmResponse,
     ToolDefinition,
-    FinishReason,
+    get_provider_registry,
 )
+from ..models.enums import LlmProviderEnum
+from ..models.llm import LlmCallLog, LlmConfig
 
 
 class LLMService:
     def __init__(self, session: AsyncSession):
         self.session = session
         self._provider_registry = get_provider_registry()
-    
+
     async def create_provider(self, config_id: UUID):
         """
         Create a provider instance from a stored configuration.
-        
+
         Args:
             config_id: UUID of the LLM configuration
-            
+
         Returns:
             Configured provider instance
         """
         config = await self.get_config(config_id)
         if not config:
             raise ValueError(f"LLM config not found: {config_id}")
-        
+
         # Get API key from environment variable reference
         api_key = None
         if config.api_key_ref:
             api_key = os.getenv(config.api_key_ref)
-        
+
         # Get base URL from extra_config if present
         base_url = config.extra_config.get("base_url") if config.extra_config else None
-        
+
         # Create provider
         return self._provider_registry.create_provider(
             provider_name=config.provider.value,
@@ -56,19 +57,19 @@ class LLMService:
             top_p=config.top_p,
             extra_config=config.extra_config or {},
         )
-    
+
     async def complete(
         self,
         config_id: UUID,
-        messages: List[Dict[str, str]],
-        tools: Optional[List[ToolDefinition]] = None,
-        system_prompt: Optional[str] = None,
-        agent_id: Optional[UUID] = None,
-        task_id: Optional[UUID] = None,
+        messages: list[dict[str, str]],
+        tools: list[ToolDefinition] | None = None,
+        system_prompt: str | None = None,
+        agent_id: UUID | None = None,
+        task_id: UUID | None = None,
     ) -> LlmResponse:
         """
         Generate completion with automatic cost logging.
-        
+
         Args:
             config_id: LLM configuration to use
             messages: List of message dicts with 'role' and 'content'
@@ -76,16 +77,16 @@ class LLMService:
             system_prompt: Optional system prompt
             agent_id: Optional agent ID for cost tracking
             task_id: Optional task ID for cost tracking
-            
+
         Returns:
             LlmResponse with standardized format
         """
         # Create provider
         provider = await self.create_provider(config_id)
-        
+
         # Get config for logging
         config = await self.get_config(config_id)
-        
+
         try:
             # Generate completion
             response = await provider.complete(
@@ -93,7 +94,7 @@ class LLMService:
                 tools=tools,
                 system_prompt=system_prompt,
             )
-            
+
             # Log the call
             await self.log_call(
                 provider=config.provider,
@@ -107,26 +108,26 @@ class LLMService:
                 task_id=task_id,
                 llm_config_id=config_id,
             )
-            
+
             return response
-            
+
         finally:
             # Clean up provider
             await provider.close()
-    
+
     async def complete_stream(
         self,
         config_id: UUID,
-        messages: List[Dict[str, str]],
-        system_prompt: Optional[str] = None,
+        messages: list[dict[str, str]],
+        system_prompt: str | None = None,
     ) -> AsyncGenerator[str, None]:
         """
         Generate streaming completion.
-        
+
         Note: Cost tracking is not available for streaming completions.
         """
         provider = await self.create_provider(config_id)
-        
+
         try:
             async for chunk in provider.complete_stream(
                 messages=messages,
@@ -135,7 +136,7 @@ class LLMService:
                 yield chunk
         finally:
             await provider.close()
-    
+
     async def test_config(self, config_id: UUID) -> bool:
         """Test if an LLM configuration is valid and working"""
         try:
@@ -145,26 +146,26 @@ class LLMService:
             return result
         except Exception:
             return False
-    
+
     def _estimate_cost(self, provider, response: LlmResponse) -> float:
         """Estimate cost using provider's pricing"""
         return provider._estimate_cost(
             response.input_tokens,
             response.output_tokens,
         )
-    
+
     # Configuration Management
-    
+
     async def create_config(
         self,
         name: str,
         provider: LlmProviderEnum,
         model_name: str,
-        api_key_ref: Optional[str] = None,
+        api_key_ref: str | None = None,
         temperature: float = 0.7,
         top_p: float = 1.0,
         max_tokens: int = 4096,
-        extra_config: Optional[dict] = None,
+        extra_config: dict | None = None,
     ) -> LlmConfig:
         """Create a new LLM configuration"""
         config = LlmConfig(
@@ -181,51 +182,45 @@ class LLMService:
         await self.session.commit()
         await self.session.refresh(config)
         return config
-    
-    async def get_config(self, config_id: UUID) -> Optional[LlmConfig]:
+
+    async def get_config(self, config_id: UUID) -> LlmConfig | None:
         """Get LLM config by ID"""
         result = await self.session.execute(
             select(LlmConfig).where(LlmConfig.id == config_id)
         )
         return result.scalar_one_or_none()
-    
-    async def get_configs(self, skip: int = 0, limit: int = 100) -> List[LlmConfig]:
+
+    async def get_configs(self, skip: int = 0, limit: int = 100) -> list[LlmConfig]:
         """Get all LLM configurations"""
-        result = await self.session.execute(
-            select(LlmConfig).offset(skip).limit(limit)
-        )
+        result = await self.session.execute(select(LlmConfig).offset(skip).limit(limit))
         return result.scalars().all()
-    
-    async def update_config(
-        self,
-        config_id: UUID,
-        **updates
-    ) -> Optional[LlmConfig]:
+
+    async def update_config(self, config_id: UUID, **updates) -> LlmConfig | None:
         """Update LLM config fields"""
         config = await self.get_config(config_id)
         if not config:
             return None
-        
+
         for key, value in updates.items():
             if hasattr(config, key):
                 setattr(config, key, value)
-        
+
         await self.session.commit()
         await self.session.refresh(config)
         return config
-    
+
     async def delete_config(self, config_id: UUID) -> bool:
         """Delete an LLM config"""
         config = await self.get_config(config_id)
         if not config:
             return False
-        
+
         await self.session.delete(config)
         await self.session.commit()
         return True
-    
+
     # Cost Tracking
-    
+
     async def log_call(
         self,
         provider: LlmProviderEnum,
@@ -235,9 +230,9 @@ class LLMService:
         cost_usd: float,
         latency_ms: int,
         finish_reason: str,
-        agent_id: Optional[UUID] = None,
-        task_id: Optional[UUID] = None,
-        llm_config_id: Optional[UUID] = None,
+        agent_id: UUID | None = None,
+        task_id: UUID | None = None,
+        llm_config_id: UUID | None = None,
     ) -> LlmCallLog:
         """Log an LLM API call for cost tracking"""
         log = LlmCallLog(
@@ -256,37 +251,39 @@ class LLMService:
         await self.session.commit()
         await self.session.refresh(log)
         return log
-    
+
     async def get_cost_stats(
         self,
-        agent_id: Optional[UUID] = None,
+        agent_id: UUID | None = None,
         days: int = 30,
     ) -> dict:
         """Get cost statistics"""
         since = datetime.utcnow() - timedelta(days=days)
-        
+
         query = select(LlmCallLog).where(LlmCallLog.created_at >= since)
         if agent_id:
             query = query.where(LlmCallLog.agent_id == agent_id)
-        
+
         result = await self.session.execute(query)
         logs = result.scalars().all()
-        
+
         total_cost = sum(log.cost_usd for log in logs)
         total_tokens = sum(log.input_tokens + log.output_tokens for log in logs)
         total_calls = len(logs)
-        
+
         # Cost by provider
         provider_costs = {}
         for log in logs:
             provider = log.provider.value
             provider_costs[provider] = provider_costs.get(provider, 0) + log.cost_usd
-        
+
         # Cost by model
         model_costs = {}
         for log in logs:
-            model_costs[log.model_name] = model_costs.get(log.model_name, 0) + log.cost_usd
-        
+            model_costs[log.model_name] = (
+                model_costs.get(log.model_name, 0) + log.cost_usd
+            )
+
         return {
             "total_cost_usd": round(total_cost, 4),
             "total_tokens": total_tokens,
@@ -294,12 +291,12 @@ class LLMService:
             "by_provider": {k: round(v, 4) for k, v in provider_costs.items()},
             "by_model": {k: round(v, 4) for k, v in model_costs.items()},
         }
-    
-    async def get_default_configs(self) -> List[LlmConfig]:
+
+    async def get_default_configs(self) -> list[LlmConfig]:
         """Get or create default LLM configurations"""
         result = await self.session.execute(select(LlmConfig))
         configs = result.scalars().all()
-        
+
         if not configs:
             default_configs = [
                 {
@@ -334,20 +331,20 @@ class LLMService:
                     "extra_config": {"base_url": "http://localhost:11434"},
                 },
             ]
-            
+
             for config_data in default_configs:
                 config = LlmConfig(**config_data)
                 self.session.add(config)
-            
+
             await self.session.commit()
-            
+
             result = await self.session.execute(select(LlmConfig))
             return result.scalars().all()
-        
+
         return configs
-    
+
     # Utility methods
-    
-    def list_available_providers(self) -> List[str]:
+
+    def list_available_providers(self) -> list[str]:
         """List all registered provider names"""
         return self._provider_registry.list_providers()

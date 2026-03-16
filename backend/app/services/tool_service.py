@@ -1,12 +1,14 @@
 """
 Tool Service - Business logic for tool management
 """
-from typing import List, Optional
+
 from uuid import UUID
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
-from ..models.tool import Tool
+
 from ..models.enums import ToolTypeEnum
+from ..models.tool import Tool
 
 
 class ToolService:
@@ -38,43 +40,37 @@ class ToolService:
         await self.session.refresh(tool)
         return tool
 
-    async def get_tool(self, tool_id: UUID) -> Optional[Tool]:
+    async def get_tool(self, tool_id: UUID) -> Tool | None:
         """Get tool by ID"""
-        result = await self.session.execute(
-            select(Tool).where(Tool.id == tool_id)
-        )
+        result = await self.session.execute(select(Tool).where(Tool.id == tool_id))
         return result.scalar_one_or_none()
 
     async def get_tools(
         self,
-        tool_type: Optional[ToolTypeEnum] = None,
+        tool_type: ToolTypeEnum | None = None,
         skip: int = 0,
         limit: int = 100,
-    ) -> List[Tool]:
+    ) -> list[Tool]:
         """Get tools with optional filters"""
         query = select(Tool)
-        
+
         if tool_type:
             query = query.where(Tool.type == tool_type)
-        
+
         query = query.offset(skip).limit(limit)
         result = await self.session.execute(query)
         return result.scalars().all()
 
-    async def update_tool(
-        self,
-        tool_id: UUID,
-        **updates
-    ) -> Optional[Tool]:
+    async def update_tool(self, tool_id: UUID, **updates) -> Tool | None:
         """Update tool fields"""
         tool = await self.get_tool(tool_id)
         if not tool:
             return None
-        
+
         for key, value in updates.items():
             if hasattr(tool, key):
                 setattr(tool, key, value)
-        
+
         await self.session.commit()
         await self.session.refresh(tool)
         return tool
@@ -84,16 +80,16 @@ class ToolService:
         tool = await self.get_tool(tool_id)
         if not tool:
             return False
-        
+
         await self.session.delete(tool)
         await self.session.commit()
         return True
 
-    async def get_default_tools(self) -> List[Tool]:
+    async def get_default_tools(self) -> list[Tool]:
         """Get or create default system tools"""
         result = await self.session.execute(select(Tool))
         tools = result.scalars().all()
-        
+
         if not tools:
             # Create default tools
             default_tools = [
@@ -105,7 +101,10 @@ class ToolService:
                         "type": "object",
                         "properties": {
                             "url": {"type": "string", "description": "URL to browse"},
-                            "extract_mode": {"type": "string", "enum": ["text", "links", "full"]},
+                            "extract_mode": {
+                                "type": "string",
+                                "enum": ["text", "links", "full"],
+                            },
                         },
                         "required": ["url"],
                     },
@@ -126,7 +125,10 @@ class ToolService:
                     "input_schema": {
                         "type": "object",
                         "properties": {
-                            "method": {"type": "string", "enum": ["GET", "POST", "PUT", "DELETE"]},
+                            "method": {
+                                "type": "string",
+                                "enum": ["GET", "POST", "PUT", "DELETE"],
+                            },
                             "url": {"type": "string"},
                             "headers": {"type": "object"},
                             "body": {"type": "object"},
@@ -150,7 +152,10 @@ class ToolService:
                     "input_schema": {
                         "type": "object",
                         "properties": {
-                            "operation": {"type": "string", "enum": ["read", "write", "list"]},
+                            "operation": {
+                                "type": "string",
+                                "enum": ["read", "write", "list"],
+                            },
                             "path": {"type": "string"},
                             "content": {"type": "string"},
                         },
@@ -188,7 +193,14 @@ class ToolService:
                         },
                     },
                     "config": {
-                        "allowed_commands": ["ls", "cat", "grep", "find", "python3", "node"],
+                        "allowed_commands": [
+                            "ls",
+                            "cat",
+                            "grep",
+                            "find",
+                            "python3",
+                            "node",
+                        ],
                         "timeout_seconds": 60,
                     },
                     "is_dangerous": True,
@@ -224,7 +236,11 @@ class ToolService:
                         "properties": {
                             "key": {"type": "string"},
                             "content": {"type": "string"},
-                            "importance": {"type": "integer", "minimum": 1, "maximum": 5},
+                            "importance": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 5,
+                            },
                         },
                         "required": ["key", "content"],
                     },
@@ -238,15 +254,15 @@ class ToolService:
                     "is_dangerous": False,
                 },
             ]
-            
+
             for tool_data in default_tools:
                 tool = Tool(**tool_data)
                 self.session.add(tool)
-            
+
             await self.session.commit()
-            
+
             # Return fresh query
             result = await self.session.execute(select(Tool))
             return result.scalars().all()
-        
+
         return tools

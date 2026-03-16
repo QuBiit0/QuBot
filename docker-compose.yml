@@ -52,7 +52,7 @@ services:
       - DEBUG=false
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-qubot}:${POSTGRES_PASSWORD:-changeme}@db:5432/${POSTGRES_DB:-qubot_db}
       - REDIS_URL=redis://redis:6379/0
-      - SECRET_KEY=${SECRET_KEY:-your-secret-key-change-this-in-production}
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY is required - set it in .env}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
@@ -98,7 +98,7 @@ services:
       - DEBUG=false
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-qubot}:${POSTGRES_PASSWORD:-changeme}@db:5432/${POSTGRES_DB:-qubot_db}
       - REDIS_URL=redis://redis:6379/0
-      - SECRET_KEY=${SECRET_KEY:-your-secret-key-change-this-in-production}
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY is required - set it in .env}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}

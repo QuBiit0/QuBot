@@ -68,7 +68,7 @@ function getAgentColors(agent: Agent): { primary: string; secondary: string; glo
   // Default colors
   const defaultColors = { primary: '#3b82f6', secondary: '#2563eb', glow: '#60a5fa' };
 
-  return domainColors[agent.domain?.toLowerCase()] || defaultColors;
+  return domainColors[agent.domain?.toLowerCase() ?? ''] || defaultColors;
 }
 
 /**

@@ -1,15 +1,16 @@
 """
 LLM Configs API Endpoints
 """
-from typing import List, Optional
+
 from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...database import get_session
-from ...services import LLMService
-from ...models.enums import LlmProviderEnum
 from ...core.providers import ToolDefinition
+from ...database import get_session
+from ...models.enums import LlmProviderEnum
+from ...services import LLMService
 
 router = APIRouter()
 
@@ -26,7 +27,7 @@ async def list_llm_configs(
         skip=skip,
         limit=limit,
     )
-    
+
     return {
         "data": configs,
         "meta": {
@@ -44,7 +45,7 @@ async def create_llm_config(
 ):
     """Create a new LLM configuration"""
     service = LLMService(session)
-    
+
     config = await service.create_config(
         name=config_data["name"],
         provider=LlmProviderEnum(config_data["provider"]),
@@ -55,7 +56,7 @@ async def create_llm_config(
         top_p=config_data.get("top_p", 1.0),
         extra_config=config_data.get("extra_config", {}),
     )
-    
+
     return {"data": config}
 
 
@@ -67,10 +68,10 @@ async def get_llm_config(
     """Get LLM config by ID"""
     service = LLMService(session)
     config = await service.get_config(config_id)
-    
+
     if not config:
         raise HTTPException(status_code=404, detail="LLM config not found")
-    
+
     return {"data": config}
 
 
@@ -83,10 +84,10 @@ async def update_llm_config(
     """Update LLM configuration"""
     service = LLMService(session)
     config = await service.update_config(config_id, **updates)
-    
+
     if not config:
         raise HTTPException(status_code=404, detail="LLM config not found")
-    
+
     return {"data": config}
 
 
@@ -98,14 +99,15 @@ async def delete_llm_config(
     """Delete LLM configuration"""
     service = LLMService(session)
     success = await service.delete_config(config_id)
-    
+
     if not success:
         raise HTTPException(status_code=404, detail="LLM config not found")
-    
+
     return {"message": "LLM config deleted successfully"}
 
 
 # Providers info
+
 
 @router.get("/llm-providers", response_model=dict)
 async def list_llm_providers(
@@ -114,7 +116,7 @@ async def list_llm_providers(
     """List all available LLM providers with their models"""
     service = LLMService(session)
     registered = service.list_available_providers()
-    
+
     providers = {
         "openai": {
             "name": "OpenAI",
@@ -122,24 +124,56 @@ async def list_llm_providers(
                 {"id": "gpt-4o", "name": "GPT-4o", "context_window": 128000},
                 {"id": "gpt-4o-mini", "name": "GPT-4o Mini", "context_window": 128000},
                 {"id": "gpt-4-turbo", "name": "GPT-4 Turbo", "context_window": 128000},
-                {"id": "gpt-3.5-turbo", "name": "GPT-3.5 Turbo", "context_window": 16385},
+                {
+                    "id": "gpt-3.5-turbo",
+                    "name": "GPT-3.5 Turbo",
+                    "context_window": 16385,
+                },
             ],
         },
         "anthropic": {
             "name": "Anthropic",
             "models": [
-                {"id": "claude-3-5-sonnet-20241022", "name": "Claude 3.5 Sonnet", "context_window": 200000},
-                {"id": "claude-3-opus-20240229", "name": "Claude 3 Opus", "context_window": 200000},
-                {"id": "claude-3-sonnet-20240229", "name": "Claude 3 Sonnet", "context_window": 200000},
-                {"id": "claude-3-haiku-20240307", "name": "Claude 3 Haiku", "context_window": 200000},
+                {
+                    "id": "claude-3-5-sonnet-20241022",
+                    "name": "Claude 3.5 Sonnet",
+                    "context_window": 200000,
+                },
+                {
+                    "id": "claude-3-opus-20240229",
+                    "name": "Claude 3 Opus",
+                    "context_window": 200000,
+                },
+                {
+                    "id": "claude-3-sonnet-20240229",
+                    "name": "Claude 3 Sonnet",
+                    "context_window": 200000,
+                },
+                {
+                    "id": "claude-3-haiku-20240307",
+                    "name": "Claude 3 Haiku",
+                    "context_window": 200000,
+                },
             ],
         },
         "groq": {
             "name": "Groq",
             "models": [
-                {"id": "llama-3.1-70b-versatile", "name": "Llama 3.1 70B", "context_window": 131072},
-                {"id": "llama-3.1-8b-instant", "name": "Llama 3.1 8B", "context_window": 131072},
-                {"id": "mixtral-8x7b-32768", "name": "Mixtral 8x7B", "context_window": 32768},
+                {
+                    "id": "llama-3.1-70b-versatile",
+                    "name": "Llama 3.1 70B",
+                    "context_window": 131072,
+                },
+                {
+                    "id": "llama-3.1-8b-instant",
+                    "name": "Llama 3.1 8B",
+                    "context_window": 131072,
+                },
+                {
+                    "id": "mixtral-8x7b-32768",
+                    "name": "Mixtral 8x7B",
+                    "context_window": 32768,
+                },
                 {"id": "gemma-7b-it", "name": "Gemma 7B", "context_window": 8192},
             ],
         },
@@ -155,20 +189,33 @@ async def list_llm_providers(
         "google": {
             "name": "Google AI",
             "models": [
-                {"id": "gemini-1.5-pro", "name": "Gemini 1.5 Pro", "context_window": 2097152},
-                {"id": "gemini-1.5-flash", "name": "Gemini 1.5 Flash", "context_window": 1048576},
-                {"id": "gemini-1.0-pro", "name": "Gemini 1.0 Pro", "context_window": 32768},
+                {
+                    "id": "gemini-1.5-pro",
+                    "name": "Gemini 1.5 Pro",
+                    "context_window": 2097152,
+                },
+                {
+                    "id": "gemini-1.5-flash",
+                    "name": "Gemini 1.5 Flash",
+                    "context_window": 1048576,
+                },
+                {
+                    "id": "gemini-1.0-pro",
+                    "name": "Gemini 1.0 Pro",
+                    "context_window": 32768,
+                },
             ],
         },
     }
-    
+
     # Filter to only registered providers
     available = {k: v for k, v in providers.items() if k in registered}
-    
+
     return {"data": available}
 
 
 # Test connectivity
+
 
 @router.post("/llm-configs/{config_id}/test", response_model=dict)
 async def test_llm_connection(
@@ -177,9 +224,9 @@ async def test_llm_connection(
 ):
     """Test connectivity to LLM provider"""
     service = LLMService(session)
-    
+
     connected = await service.test_config(config_id)
-    
+
     return {
         "data": {
             "connected": connected,
@@ -198,11 +245,12 @@ async def get_llm_usage_stats(
     service = LLMService(session)
     # Note: get_cost_stats filters by config_id not implemented yet
     stats = await service.get_cost_stats(agent_id=None, days=days)
-    
+
     return {"data": stats}
 
 
 # Chat completion endpoint
+
 
 @router.post("/llm-configs/{config_id}/chat", response_model=dict)
 async def chat_completion(
@@ -212,7 +260,7 @@ async def chat_completion(
 ):
     """
     Generate chat completion using a specific config.
-    
+
     Request body:
     {
         "messages": [{"role": "user", "content": "Hello"}],
@@ -221,10 +269,10 @@ async def chat_completion(
     }
     """
     service = LLMService(session)
-    
+
     messages = chat_data.get("messages", [])
     system_prompt = chat_data.get("system_prompt")
-    
+
     # Convert tool definitions
     tools = None
     if "tools" in chat_data:
@@ -236,7 +284,7 @@ async def chat_completion(
             )
             for t in chat_data["tools"]
         ]
-    
+
     try:
         response = await service.complete(
             config_id=config_id,
@@ -244,7 +292,7 @@ async def chat_completion(
             tools=tools,
             system_prompt=system_prompt,
         )
-        
+
         return {
             "data": {
                 "content": response.content,

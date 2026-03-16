@@ -2,6 +2,7 @@
 Alembic async environment configuration
 Supports SQLModel for migrations
 """
+
 import asyncio
 from logging.config import fileConfig
 
@@ -13,15 +14,6 @@ from sqlmodel import SQLModel
 from alembic import context
 
 # Import all models for metadata discovery
-from app.models import (
-    Agent, AgentClass, AgentTool,
-    Task, TaskEvent,
-    Tool,
-    LlmConfig, LlmCallLog,
-    GlobalMemory, AgentMemory, TaskMemory,
-    MessagingChannel, Conversation, ConversationMessage,
-    SystemConfig, ConfigPreset, ConfigHistory, EnvironmentConfig,
-)
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

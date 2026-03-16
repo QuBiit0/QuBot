@@ -1,5 +1,5 @@
-from .registry import tool_registry
 from .filesystem import FilesystemTool
+from .registry import tool_registry
 
 # Instanciar y registrar todas las herramientas
 filesystem_tool = FilesystemTool()

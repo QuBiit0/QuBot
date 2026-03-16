@@ -173,17 +173,22 @@ function distributeAgentsIntoOffices(agents: StoreAgent[]): StoreAgent[][] {
   
   const domains = Object.keys(byDomain);
   for (const domain of domains) {
-    while (byDomain[domain].length > 0 && office1.length < OFFICE_CONFIG.MAX_AGENTS_PER_OFFICE) {
-      office1.push(byDomain[domain].shift()!);
+    const domainAgents1 = byDomain[domain];
+    if (domainAgents1) {
+      while (domainAgents1.length > 0 && office1.length < OFFICE_CONFIG.MAX_AGENTS_PER_OFFICE) {
+        office1.push(domainAgents1.shift()!);
+      }
     }
   }
   if (office1.length > 0) offices.push(office1);
-  
+
   for (const domain of domains) {
-    while (byDomain[domain].length > 0) {
+    const domainAgents2 = byDomain[domain];
+    if (!domainAgents2) continue;
+    while (domainAgents2.length > 0) {
       const office: StoreAgent[] = [];
-      while (byDomain[domain].length > 0 && office.length < OFFICE_CONFIG.MAX_AGENTS_PER_OFFICE) {
-        office.push(byDomain[domain].shift()!);
+      while (domainAgents2.length > 0 && office.length < OFFICE_CONFIG.MAX_AGENTS_PER_OFFICE) {
+        office.push(domainAgents2.shift()!);
       }
       offices.push(office);
     }
@@ -221,9 +226,9 @@ function generatePositionsForOffice(agents: StoreAgent[], width: number, wallH: 
     const firstRow = Math.min(3, others.length);
     const startX1 = centerX - ((firstRow - 1) * spacingX) / 2;
     for (let i = 0; i < firstRow; i++) {
-      positions.push({ x: startX1 + i * spacingX, y: secondRowY, agent: others[i] });
+      positions.push({ x: startX1 + i * spacingX, y: secondRowY, agent: others[i]! });
     }
-    
+
     const thirdRowY = secondRowY + spacingY;
     const secondRowAgents = others.slice(firstRow);
     const secondRowCount = secondRowAgents.length;
@@ -235,7 +240,7 @@ function generatePositionsForOffice(agents: StoreAgent[], width: number, wallH: 
     const firstRow = 3;
     const startX1 = centerX - ((firstRow - 1) * spacingX) / 2;
     for (let i = 0; i < firstRow; i++) {
-      positions.push({ x: startX1 + i * spacingX, y: secondRowY, agent: others[i] });
+      positions.push({ x: startX1 + i * spacingX, y: secondRowY, agent: others[i]! });
     }
     
     const thirdRowY = secondRowY + spacingY;

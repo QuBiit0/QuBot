@@ -114,7 +114,7 @@ export function Step5LlmConfig({ data, onChange }: Step5LlmConfigProps) {
       <div className="space-y-3 mb-4">
         {configs.map((config, index) => {
           const isSelected = data.llmConfigId === config.id;
-          const providerColor = PROVIDER_COLORS[config.provider];
+          const providerColor = PROVIDER_COLORS[config.provider as LlmProviderEnum];
 
           return (
             <motion.button
@@ -150,7 +150,7 @@ export function Step5LlmConfig({ data, onChange }: Step5LlmConfigProps) {
                   </div>
                   
                   <p className="text-xs text-[#6e7681] mb-2">
-                    {PROVIDER_LABELS[config.provider]} • {config.model_name}
+                    {PROVIDER_LABELS[config.provider as LlmProviderEnum]} • {config.model_name}
                   </p>
 
                   {/* Parameters */}

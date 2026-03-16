@@ -31,7 +31,7 @@ function agentColor(name: string) { return AGENT_COLORS[name] ?? '#79c0ff'; }
 
 function MissionCard({ task, agentName }: { task: Task; agentName?: string }) {
   const st = STATUS_CFG[task.status] ?? STATUS_CFG.BACKLOG;
-  const pr = PRIORITY_CFG[task.priority] ?? PRIORITY_CFG[0];
+  const pr = PRIORITY_CFG[task.priority] ?? { label: 'Low', color: '#484f58' };
   const aColor = agentName ? agentColor(agentName) : '#8b949e';
 
   return (

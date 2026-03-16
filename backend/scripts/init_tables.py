@@ -1,8 +1,10 @@
 """
 Initialize database tables using SQLModel
 """
+
 import asyncio
 import logging
+
 from app.database import engine
 from app.models.database import SQLModel
 

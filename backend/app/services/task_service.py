@@ -1,13 +1,15 @@
 """
 Task Service - Business logic for task management
 """
+
 from datetime import datetime
-from typing import List, Optional
 from uuid import UUID
+
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select, desc
+from sqlmodel import desc, select
+
+from ..models.enums import PriorityEnum, TaskEventTypeEnum, TaskStatusEnum
 from ..models.task import Task, TaskEvent
-from ..models.enums import TaskStatusEnum, TaskEventTypeEnum, PriorityEnum
 
 
 class TaskService:
@@ -19,9 +21,9 @@ class TaskService:
         title: str,
         description: str,
         priority: PriorityEnum = PriorityEnum.MEDIUM,
-        domain_hint: Optional[str] = None,
-        assigned_agent_id: Optional[UUID] = None,
-        parent_task_id: Optional[UUID] = None,
+        domain_hint: str | None = None,
+        assigned_agent_id: UUID | None = None,
+        parent_task_id: UUID | None = None,
         created_by: str = "user",
     ) -> Task:
         """Create a new task"""
@@ -38,14 +40,18 @@ class TaskService:
         self.session.add(task)
         await self.session.commit()
         await self.session.refresh(task)
-        
+
         # Create CREATED event
         await self.create_task_event(
             task_id=task.id,
             event_type=TaskEventTypeEnum.CREATED,
-            payload={"title": title, "description": description, "priority": priority.value},
+            payload={
+                "title": title,
+                "description": description,
+                "priority": priority.value,
+            },
         )
-        
+
         # If assigned, create ASSIGNED event
         if assigned_agent_id:
             await self.create_task_event(
@@ -56,28 +62,26 @@ class TaskService:
             )
             task.status = TaskStatusEnum.IN_PROGRESS
             await self.session.commit()
-        
+
         return task
 
-    async def get_task(self, task_id: UUID) -> Optional[Task]:
+    async def get_task(self, task_id: UUID) -> Task | None:
         """Get task by ID"""
-        result = await self.session.execute(
-            select(Task).where(Task.id == task_id)
-        )
+        result = await self.session.execute(select(Task).where(Task.id == task_id))
         return result.scalar_one_or_none()
 
     async def get_tasks(
         self,
-        status: Optional[TaskStatusEnum] = None,
-        assigned_agent_id: Optional[UUID] = None,
-        domain_hint: Optional[str] = None,
-        priority: Optional[PriorityEnum] = None,
+        status: TaskStatusEnum | None = None,
+        assigned_agent_id: UUID | None = None,
+        domain_hint: str | None = None,
+        priority: PriorityEnum | None = None,
         skip: int = 0,
         limit: int = 100,
-    ) -> List[Task]:
+    ) -> list[Task]:
         """Get tasks with optional filters"""
         query = select(Task)
-        
+
         if status:
             query = query.where(Task.status == status)
         if assigned_agent_id:
@@ -86,7 +90,7 @@ class TaskService:
             query = query.where(Task.domain_hint == domain_hint)
         if priority:
             query = query.where(Task.priority == priority)
-        
+
         query = query.order_by(desc(Task.created_at)).offset(skip).limit(limit)
         result = await self.session.execute(query)
         return result.scalars().all()
@@ -95,37 +99,40 @@ class TaskService:
         self,
         task_id: UUID,
         new_status: TaskStatusEnum,
-        agent_id: Optional[UUID] = None,
-    ) -> Optional[Task]:
+        agent_id: UUID | None = None,
+    ) -> Task | None:
         """Update task status and create event"""
         task = await self.get_task(task_id)
         if not task:
             return None
-        
+
         old_status = task.status
         task.status = new_status
-        
+
         if new_status in [TaskStatusEnum.DONE, TaskStatusEnum.FAILED]:
             task.completed_at = datetime.utcnow()
-        
+
         await self.session.commit()
-        
+
         # Create status change event
         event_type_map = {
             TaskStatusEnum.IN_PROGRESS: TaskEventTypeEnum.STARTED,
             TaskStatusEnum.DONE: TaskEventTypeEnum.COMPLETED,
             TaskStatusEnum.FAILED: TaskEventTypeEnum.FAILED,
         }
-        
+
         event_type = event_type_map.get(new_status)
         if event_type:
             await self.create_task_event(
                 task_id=task_id,
                 event_type=event_type,
-                payload={"old_status": old_status.value, "new_status": new_status.value},
+                payload={
+                    "old_status": old_status.value,
+                    "new_status": new_status.value,
+                },
                 agent_id=agent_id,
             )
-        
+
         await self.session.refresh(task)
         return task
 
@@ -133,17 +140,17 @@ class TaskService:
         self,
         task_id: UUID,
         agent_id: UUID,
-    ) -> Optional[Task]:
+    ) -> Task | None:
         """Assign task to an agent"""
         task = await self.get_task(task_id)
         if not task:
             return None
-        
+
         task.assigned_agent_id = agent_id
         task.status = TaskStatusEnum.IN_PROGRESS
-        
+
         await self.session.commit()
-        
+
         # Create assignment event
         await self.create_task_event(
             task_id=task_id,
@@ -151,7 +158,7 @@ class TaskService:
             payload={"agent_id": str(agent_id)},
             agent_id=agent_id,
         )
-        
+
         await self.session.refresh(task)
         return task
 
@@ -160,7 +167,7 @@ class TaskService:
         task_id: UUID,
         event_type: TaskEventTypeEnum,
         payload: dict,
-        agent_id: Optional[UUID] = None,
+        agent_id: UUID | None = None,
     ) -> TaskEvent:
         """Create a task event (audit log)"""
         event = TaskEvent(
@@ -179,7 +186,7 @@ class TaskService:
         task_id: UUID,
         skip: int = 0,
         limit: int = 100,
-    ) -> List[TaskEvent]:
+    ) -> list[TaskEvent]:
         """Get events for a task"""
         result = await self.session.execute(
             select(TaskEvent)
@@ -195,13 +202,13 @@ class TaskService:
         task_id: UUID,
         message: str,
         agent_id: UUID,
-        iteration: Optional[int] = None,
+        iteration: int | None = None,
     ) -> TaskEvent:
         """Add a progress update event"""
         payload = {"message": message}
         if iteration is not None:
             payload["iteration"] = iteration
-        
+
         return await self.create_task_event(
             task_id=task_id,
             event_type=TaskEventTypeEnum.PROGRESS_UPDATE,
@@ -235,7 +242,7 @@ class TaskService:
             agent_id=agent_id,
         )
 
-    async def get_subtasks(self, parent_task_id: UUID) -> List[Task]:
+    async def get_subtasks(self, parent_task_id: UUID) -> list[Task]:
         """Get subtasks of a parent task"""
         result = await self.session.execute(
             select(Task).where(Task.parent_task_id == parent_task_id)

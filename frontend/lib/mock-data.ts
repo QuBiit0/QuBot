@@ -209,7 +209,7 @@ export const mockTasks: Task[] = [
     description: 'Improve performance of slow queries',
     status: 'BACKLOG',
     priority: 2,
-    agentId: null,
+    agentId: undefined,
     assigned_to: null,
     tags: ['backend', 'performance', 'database'],
     due_date: '2024-02-15T23:59:59Z',

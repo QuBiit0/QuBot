@@ -2,11 +2,13 @@
 Qubot Enums
 All application enums in one place for consistency
 """
+
 import enum
 
 
 class DomainEnum(str, enum.Enum):
     """Agent/task domain classification"""
+
     TECH = "TECH"
     BUSINESS = "BUSINESS"
     FINANCE = "FINANCE"
@@ -19,6 +21,7 @@ class DomainEnum(str, enum.Enum):
 
 class GenderEnum(str, enum.Enum):
     """Agent gender options"""
+
     MALE = "MALE"
     FEMALE = "FEMALE"
     NON_BINARY = "NON_BINARY"
@@ -26,6 +29,7 @@ class GenderEnum(str, enum.Enum):
 
 class AgentStatusEnum(str, enum.Enum):
     """Agent operational status"""
+
     IDLE = "IDLE"
     WORKING = "WORKING"
     ERROR = "ERROR"
@@ -34,6 +38,7 @@ class AgentStatusEnum(str, enum.Enum):
 
 class TaskStatusEnum(str, enum.Enum):
     """Task lifecycle status"""
+
     BACKLOG = "BACKLOG"
     IN_PROGRESS = "IN_PROGRESS"
     IN_REVIEW = "IN_REVIEW"
@@ -43,6 +48,7 @@ class TaskStatusEnum(str, enum.Enum):
 
 class PriorityEnum(str, enum.Enum):
     """Task priority levels"""
+
     LOW = "LOW"
     MEDIUM = "MEDIUM"
     HIGH = "HIGH"
@@ -51,6 +57,7 @@ class PriorityEnum(str, enum.Enum):
 
 class ToolTypeEnum(str, enum.Enum):
     """Tool/skill types"""
+
     SYSTEM_SHELL = "SYSTEM_SHELL"
     WEB_BROWSER = "WEB_BROWSER"
     FILESYSTEM = "FILESYSTEM"
@@ -61,6 +68,7 @@ class ToolTypeEnum(str, enum.Enum):
 
 class LlmProviderEnum(str, enum.Enum):
     """LLM provider options"""
+
     OPENAI = "OPENAI"
     ANTHROPIC = "ANTHROPIC"
     GOOGLE = "GOOGLE"
@@ -77,6 +85,7 @@ class LlmProviderEnum(str, enum.Enum):
 
 class PermissionEnum(str, enum.Enum):
     """Tool permission levels"""
+
     READ_ONLY = "READ_ONLY"
     READ_WRITE = "READ_WRITE"
     DANGEROUS = "DANGEROUS"
@@ -84,6 +93,7 @@ class PermissionEnum(str, enum.Enum):
 
 class TaskEventTypeEnum(str, enum.Enum):
     """Task event types for audit log"""
+
     CREATED = "CREATED"
     ASSIGNED = "ASSIGNED"
     STARTED = "STARTED"
@@ -96,6 +106,7 @@ class TaskEventTypeEnum(str, enum.Enum):
 
 class MessagingPlatformEnum(str, enum.Enum):
     """Messaging platform types"""
+
     TELEGRAM = "telegram"
     WHATSAPP = "whatsapp"
     DISCORD = "discord"
@@ -104,12 +115,14 @@ class MessagingPlatformEnum(str, enum.Enum):
 
 class MessageDirectionEnum(str, enum.Enum):
     """Message direction"""
+
     INBOUND = "inbound"
     OUTBOUND = "outbound"
 
 
 class MemoryScopeEnum(str, enum.Enum):
     """Memory scope (for backwards compatibility)"""
+
     GLOBAL = "global"
     AGENT = "agent"
     TASK = "task"
