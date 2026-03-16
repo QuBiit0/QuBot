@@ -8,6 +8,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...database import get_session
+from ...schemas.memories import (
+    AgentMemoryCreateRequest,
+    GlobalMemoryCreateRequest,
+    GlobalMemoryUpdateRequest,
+    TaskMemoryCreateRequest,
+)
 from ...services import MemoryService
 
 router = APIRouter()
@@ -16,7 +22,7 @@ router = APIRouter()
 # Global Memory endpoints
 
 
-@router.get("/memories/global", response_model=dict)
+@router.get("/memories/global", response_model=None)
 async def list_global_memories(
     tags: str | None = None,
     query: str | None = None,
@@ -36,25 +42,25 @@ async def list_global_memories(
     return {"data": memories}
 
 
-@router.post("/memories/global", response_model=dict)
+@router.post("/memories/global", response_model=None)
 async def create_global_memory(
-    memory_data: dict,
+    request: GlobalMemoryCreateRequest,
     session: AsyncSession = Depends(get_session),
 ):
     """Create a new global memory"""
     service = MemoryService(session)
 
     memory = await service.create_global_memory(
-        key=memory_data["key"],
-        content=memory_data["content"],
-        content_type=memory_data.get("content_type", "text"),
-        tags=memory_data.get("tags", []),
+        key=request.key,
+        content=request.content,
+        content_type=request.content_type,
+        tags=request.tags,
     )
 
     return {"data": memory}
 
 
-@router.get("/memories/global/{memory_id}", response_model=dict)
+@router.get("/memories/global/{memory_id}", response_model=None)
 async def get_global_memory(
     memory_id: UUID,
     session: AsyncSession = Depends(get_session),
@@ -69,14 +75,15 @@ async def get_global_memory(
     return {"data": memory}
 
 
-@router.put("/memories/global/{memory_id}", response_model=dict)
+@router.put("/memories/global/{memory_id}", response_model=None)
 async def update_global_memory(
     memory_id: UUID,
-    updates: dict,
+    request: GlobalMemoryUpdateRequest,
     session: AsyncSession = Depends(get_session),
 ):
     """Update global memory"""
     service = MemoryService(session)
+    updates = {k: v for k, v in request.model_dump().items() if v is not None}
     memory = await service.update_global_memory(memory_id, **updates)
 
     if not memory:
@@ -85,7 +92,7 @@ async def update_global_memory(
     return {"data": memory}
 
 
-@router.delete("/memories/global/{memory_id}", response_model=dict)
+@router.delete("/memories/global/{memory_id}", response_model=None)
 async def delete_global_memory(
     memory_id: UUID,
     session: AsyncSession = Depends(get_session),
@@ -103,7 +110,7 @@ async def delete_global_memory(
 # Agent Memory endpoints
 
 
-@router.get("/agents/{agent_id}/memories", response_model=dict)
+@router.get("/agents/{agent_id}/memories", response_model=None)
 async def get_agent_memories(
     agent_id: UUID,
     min_importance: int = Query(1, ge=1, le=5),
@@ -121,10 +128,10 @@ async def get_agent_memories(
     return {"data": memories}
 
 
-@router.post("/agents/{agent_id}/memories", response_model=dict)
+@router.post("/agents/{agent_id}/memories", response_model=None)
 async def create_agent_memory(
     agent_id: UUID,
-    memory_data: dict,
+    request: AgentMemoryCreateRequest,
     session: AsyncSession = Depends(get_session),
 ):
     """Create a memory for an agent"""
@@ -132,9 +139,9 @@ async def create_agent_memory(
 
     memory = await service.create_agent_memory(
         agent_id=agent_id,
-        key=memory_data["key"],
-        content=memory_data["content"],
-        importance=memory_data.get("importance", 3),
+        key=request.key,
+        content=request.content,
+        importance=request.importance,
     )
 
     return {"data": memory}
@@ -143,7 +150,7 @@ async def create_agent_memory(
 # Task Memory endpoints
 
 
-@router.get("/tasks/{task_id}/memory", response_model=dict)
+@router.get("/tasks/{task_id}/memory", response_model=None)
 async def get_task_memory(
     task_id: UUID,
     session: AsyncSession = Depends(get_session),
@@ -158,10 +165,10 @@ async def get_task_memory(
     return {"data": memory}
 
 
-@router.post("/tasks/{task_id}/memory", response_model=dict)
+@router.post("/tasks/{task_id}/memory", response_model=None)
 async def create_task_memory(
     task_id: UUID,
-    memory_data: dict,
+    request: TaskMemoryCreateRequest,
     session: AsyncSession = Depends(get_session),
 ):
     """Create a memory associated with a task"""
@@ -169,8 +176,8 @@ async def create_task_memory(
 
     memory = await service.create_task_memory(
         task_id=task_id,
-        summary=memory_data["summary"],
-        key_facts=memory_data.get("key_facts", []),
+        summary=request.summary,
+        key_facts=request.key_facts,
     )
 
     return {"data": memory}

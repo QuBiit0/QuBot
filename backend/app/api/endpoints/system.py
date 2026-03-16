@@ -29,7 +29,7 @@ router = APIRouter()
 STARTUP_TIME = time.time()
 
 
-@router.get("/health", response_model=dict)
+@router.get("/health", response_model=None)
 async def health_check(
     session: AsyncSession = Depends(get_session),
 ):
@@ -67,7 +67,7 @@ async def health_check(
     return response
 
 
-@router.get("/health/ready", response_model=dict)
+@router.get("/health/ready", response_model=None)
 async def readiness_check(
     session: AsyncSession = Depends(get_session),
 ):
@@ -88,7 +88,7 @@ async def readiness_check(
     return {"ready": True, "timestamp": datetime.utcnow().isoformat()}
 
 
-@router.get("/health/live", response_model=dict)
+@router.get("/health/live", response_model=None)
 async def liveness_check():
     """
     Kubernetes liveness probe.
@@ -102,7 +102,7 @@ async def liveness_check():
     }
 
 
-@router.get("/metrics", response_model=dict)
+@router.get("/metrics", response_model=None)
 async def get_metrics(
     session: AsyncSession = Depends(get_session),
 ):
@@ -163,7 +163,7 @@ async def get_metrics(
     }
 
 
-@router.get("/info", response_model=dict)
+@router.get("/info", response_model=None)
 async def get_system_info():
     """
     System information endpoint.
@@ -183,7 +183,7 @@ async def get_system_info():
     }
 
 
-@router.get("/config", response_model=dict)
+@router.get("/config", response_model=None)
 async def get_public_config():
     """
     Public configuration endpoint.

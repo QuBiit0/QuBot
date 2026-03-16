@@ -1,5 +1,7 @@
 """
-Pytest configuration and shared fixtures
+Pytest configuration and shared fixtures.
+Imports are lazy (inside fixtures) so unit tests don't require
+a full running stack.
 """
 
 import os
@@ -7,7 +9,6 @@ import sys
 
 import pytest
 import pytest_asyncio
-from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel
@@ -15,62 +16,65 @@ from sqlmodel import SQLModel
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app.database import get_session
-from app.main import app
-
-# Test database URL - use SQLite for unit tests, PostgreSQL for integration
+# ─── Test database ───────────────────────────────────────────────────────────
+# Use env var so CI can override; falls back to a local test DB.
 TEST_DATABASE_URL = os.getenv(
-    "TEST_DATABASE_URL", "postgresql+asyncpg://qubot:test@localhost:5432/qubot_test"
+    "DATABASE_URL",
+    "postgresql+asyncpg://qubot:test@localhost:5432/qubot_test",
 )
 
-# Create test engine
-engine = create_async_engine(TEST_DATABASE_URL, echo=False)
-TestingSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
+# ─── Session-scoped DB setup (only used by integration tests) ────────────────
 
 @pytest_asyncio.fixture(scope="session")
 async def setup_database():
-    """Setup test database once per session"""
-    # Create tables
+    """Create all tables once per test session."""
+    engine = create_async_engine(TEST_DATABASE_URL, echo=False)
     async with engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.create_all)
-
-    yield
-
-    # Cleanup - drop tables
+    yield engine
     async with engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.drop_all)
+    await engine.dispose()
 
 
 @pytest_asyncio.fixture
 async def db_session(setup_database):
-    """Provide a database session for tests"""
+    """Provide a transactional DB session that rolls back after each test."""
+    engine = setup_database
+    TestingSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     async with TestingSessionLocal() as session:
         yield session
-        # Rollback any changes
         await session.rollback()
 
 
 @pytest.fixture
 def client(db_session):
-    """Create a test client with database override"""
+    """
+    FastAPI TestClient with DB dependency overridden.
+    Lazy import so unit tests don't pay the full app startup cost.
+    """
+    from fastapi.testclient import TestClient
+
+    # Lazy import app here — unit tests skip this fixture entirely
+    from app.database import get_session
+    from app.main import app
 
     async def override_get_session():
         yield db_session
 
-    # Override dependency
     app.dependency_overrides[get_session] = override_get_session
 
     with TestClient(app) as test_client:
         yield test_client
 
-    # Clean up
     app.dependency_overrides.clear()
 
 
+# ─── Common test data ────────────────────────────────────────────────────────
+
 @pytest.fixture
 def test_user_data():
-    """Return test user data"""
     return {
         "email": "test@example.com",
         "username": "testuser",
@@ -81,24 +85,18 @@ def test_user_data():
 
 @pytest.fixture
 def auth_headers(client, test_user_data):
-    """Get authentication headers for a test user"""
-    # Register user
+    """Register + login, return Authorization headers."""
     client.post("/api/v1/auth/register", json=test_user_data)
-
-    # Login
-    response = client.post(
+    resp = client.post(
         "/api/v1/auth/login",
-        json={
-            "email": test_user_data["email"],
-            "password": test_user_data["password"],
-        },
+        json={"email": test_user_data["email"], "password": test_user_data["password"]},
     )
-
-    token = response.json()["access_token"]
+    token = resp.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
 
 
-# Markers for test categorization
+# ─── Pytest markers ───────────────────────────────────────────────────────────
+
 def pytest_configure(config):
     config.addinivalue_line("markers", "slow: marks tests as slow")
     config.addinivalue_line("markers", "integration: marks tests as integration tests")

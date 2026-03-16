@@ -2,6 +2,7 @@
 import React from 'react';
 import { useAppStore } from '@/store/app.store';
 import { useAgentsStore } from '@/store/agents.store';
+import { useTasksStore } from '@/store/tasks.store';
 
 interface CardProps {
   label: string;
@@ -21,7 +22,6 @@ function Card({ label, value, sub, accent, icon }: CardProps) {
         boxShadow:   `0 0 20px ${accent}08, inset 0 1px 0 ${accent}15`,
       }}
     >
-      {/* Icon */}
       <div className="flex items-center justify-between mb-0.5">
         <span style={{ color: accent, opacity: 0.85 }}>{icon}</span>
         <div className="w-5 h-5 rounded-md flex items-center justify-center"
@@ -29,13 +29,9 @@ function Card({ label, value, sub, accent, icon }: CardProps) {
           <span style={{ width: 8, height: 8, borderRadius: '50%', background: accent, display: 'block', opacity: 0.7 }} />
         </div>
       </div>
-
-      {/* Value */}
       <div className="text-[20px] font-black leading-none tabular-nums" style={{ color: '#e6edf3' }}>
         {value}
       </div>
-
-      {/* Label + sub */}
       <div className="flex items-center justify-between">
         <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: '#6b7c99' }}>
           {label}
@@ -46,8 +42,6 @@ function Card({ label, value, sub, accent, icon }: CardProps) {
           </span>
         )}
       </div>
-
-      {/* Glow corner */}
       <div
         className="absolute -top-4 -right-4 w-12 h-12 rounded-full blur-xl pointer-events-none"
         style={{ background: accent, opacity: 0.08 }}
@@ -59,17 +53,27 @@ function Card({ label, value, sub, accent, icon }: CardProps) {
 export default function MetricCards() {
   const { metrics, isConnected } = useAppStore();
   const { agents } = useAgentsStore();
+  const { tasks } = useTasksStore();
 
-  const agentList   = Object.values(agents);
-  const onlineCount = agentList.filter(a => a.status !== 'OFFLINE').length;
-  const workingCount = agentList.filter(a => a.status === 'WORKING').length;
+  const agentList    = Object.values(agents);
+  const onlineCount  = agentList.filter((a) => a.status !== 'OFFLINE').length;
+  const workingCount = agentList.filter((a) => a.status === 'WORKING').length;
+
+  // Derive task counts from store; fall back to WS metrics when store is empty
+  const taskList     = Object.values(tasks);
+  const storeTotal   = taskList.length;
+  const storePending = taskList.filter((t) => t.status === 'BACKLOG' || t.status === 'IN_PROGRESS').length;
+
+  const totalTasks   = storeTotal   > 0 ? storeTotal   : metrics.totalTasks;
+  const pendingTasks = storeTotal   > 0 ? storePending : metrics.pendingTasks;
+  const activeAgents = agentList.length > 0 ? onlineCount : metrics.activeAgents;
 
   return (
     <div className="grid grid-cols-2 gap-2 p-3">
       <Card
         label="Pending Tasks"
-        value={metrics.pendingTasks}
-        sub={metrics.pendingTasks > 0 ? '↑ pending' : '— idle'}
+        value={pendingTasks}
+        sub={pendingTasks > 0 ? '↑ pending' : '— idle'}
         accent="#3b6fff"
         icon={<TaskIcon />}
       />
@@ -82,25 +86,19 @@ export default function MetricCards() {
       />
       <Card
         label="Total Tasks"
-        value={metrics.totalTasks}
+        value={totalTasks}
         accent="#58a6ff"
         icon={<TokenIcon />}
       />
       <Card
         label="Active Agents"
-        value={metrics.activeAgents}
+        value={activeAgents}
         sub={isConnected ? 'live' : 'offline'}
         accent="#3fb950"
         icon={<CostIcon />}
       />
     </div>
   );
-}
-
-function fmtNum(n: number) {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000)     return `${(n / 1_000).toFixed(1)}K`;
-  return String(n);
 }
 
 function TaskIcon()  { return <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h12a1 1 0 011 1v10a1 1 0 01-1 1H2a1 1 0 01-1-1V3a1 1 0 011-1zm1 3v1h10V5H3zm0 3v1h7V8H3zm0 3v1h5v-1H3z"/></svg>; }

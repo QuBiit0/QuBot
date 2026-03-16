@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...core.security import get_current_user
 from ...database import get_session
 from ...models.user import User
+from ...schemas.execution import AutoAssignRequest, ExecuteTaskRequest, OrchestratorProcessRequest
 from ...services import AssignmentService, ExecutionService, OrchestratorService
 
 try:
@@ -24,10 +25,10 @@ except ImportError:
 router = APIRouter()
 
 
-@router.post("/tasks/{task_id}/execute", response_model=dict)
+@router.post("/tasks/{task_id}/execute", response_model=None)
 async def execute_task(
     task_id: UUID,
-    execution_data: dict,
+    request: ExecuteTaskRequest,
     background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
@@ -44,7 +45,7 @@ async def execute_task(
     """
     service = ExecutionService(session)
 
-    max_iterations = execution_data.get("max_iterations", 10)
+    max_iterations = request.max_iterations
 
     try:
         result = await service.execute_task(
@@ -65,7 +66,7 @@ async def execute_task(
         raise HTTPException(status_code=500, detail=f"Execution failed: {str(e)}")
 
 
-@router.post("/tasks/{task_id}/submit", response_model=dict)
+@router.post("/tasks/{task_id}/submit", response_model=None)
 async def submit_task_to_worker(
     task_id: UUID,
     current_user: User = Depends(get_current_user),
@@ -107,7 +108,7 @@ async def submit_task_to_worker(
         raise HTTPException(status_code=500, detail=f"Failed to submit task: {str(e)}")
 
 
-@router.post("/tasks/{task_id}/cancel", response_model=dict)
+@router.post("/tasks/{task_id}/cancel", response_model=None)
 async def cancel_task_execution(
     task_id: UUID,
     current_user: User = Depends(get_current_user),
@@ -132,9 +133,9 @@ async def cancel_task_execution(
 # Orchestrator endpoints
 
 
-@router.post("/orchestrator/process", response_model=dict)
+@router.post("/orchestrator/process", response_model=None)
 async def orchestrator_process_task(
-    task_data: dict,
+    request: OrchestratorProcessRequest,
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
@@ -160,41 +161,14 @@ async def orchestrator_process_task(
     """
     service = OrchestratorService(session)
 
-    from ...models.enums import DomainEnum, PriorityEnum
-
-    title = task_data.get("title")
-    description = task_data.get("description")
-    llm_config_id = UUID(task_data.get("llm_config_id"))
-
-    if not title or not description:
-        raise HTTPException(
-            status_code=400, detail="title and description are required"
-        )
-
-    # Parse priority
-    priority_str = task_data.get("priority", "medium").upper()
-    try:
-        priority = PriorityEnum[priority_str]
-    except KeyError:
-        priority = PriorityEnum.MEDIUM
-
-    # Parse domain
-    domain = None
-    domain_str = task_data.get("domain")
-    if domain_str:
-        try:
-            domain = DomainEnum(domain_str.lower())
-        except ValueError:
-            pass
-
     try:
         result = await service.process_task(
-            title=title,
-            description=description,
-            llm_config_id=llm_config_id,
-            priority=priority,
-            requested_domain=domain,
-            input_data=task_data.get("input_data"),
+            title=request.title,
+            description=request.description,
+            llm_config_id=request.llm_config_id,
+            priority=request.priority,
+            requested_domain=request.domain,
+            input_data=request.input_data,
         )
 
         return {"data": result}
@@ -206,7 +180,7 @@ async def orchestrator_process_task(
 # Assignment endpoints
 
 
-@router.get("/tasks/{task_id}/assignments", response_model=dict)
+@router.get("/tasks/{task_id}/assignments", response_model=None)
 async def get_assignment_recommendations(
     task_id: UUID,
     top_k: int = 3,
@@ -223,24 +197,21 @@ async def get_assignment_recommendations(
     return {"data": [rec.to_dict() for rec in recommendations]}
 
 
-@router.post("/tasks/{task_id}/auto-assign", response_model=dict)
+@router.post("/tasks/{task_id}/auto-assign", response_model=None)
 async def auto_assign_task(
     task_id: UUID,
-    assign_data: dict,
+    request: AutoAssignRequest,
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
     """
     Automatically assign task to best available agent.
 
-    Request body:
-    {
-        "force": false  // If true, assign even if agent is busy
-    }
+    Request body: { "force": false }
     """
     service = AssignmentService(session)
 
-    force = assign_data.get("force", False)
+    force = request.force
 
     result = await service.auto_assign_task(
         task_id=task_id,
@@ -260,7 +231,7 @@ async def auto_assign_task(
     }
 
 
-@router.get("/agents/{agent_id}/stats", response_model=dict)
+@router.get("/agents/{agent_id}/stats", response_model=None)
 async def get_agent_performance_stats(
     agent_id: UUID,
     days: int = 30,
@@ -277,7 +248,7 @@ async def get_agent_performance_stats(
     return {"data": stats}
 
 
-@router.get("/assignments/rebalance", response_model=dict)
+@router.get("/assignments/rebalance", response_model=None)
 async def get_rebalance_suggestions(
     session: AsyncSession = Depends(get_session),
 ):
@@ -294,7 +265,7 @@ async def get_rebalance_suggestions(
     }
 
 
-@router.post("/assignments/rebalance", response_model=dict)
+@router.post("/assignments/rebalance", response_model=None)
 async def execute_rebalance(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
@@ -315,7 +286,7 @@ async def execute_rebalance(
 # Worker queue endpoints
 
 
-@router.get("/queue/stats", response_model=dict)
+@router.get("/queue/stats", response_model=None)
 async def get_queue_statistics():
     """Get worker queue statistics"""
     if not WORKER_AVAILABLE:

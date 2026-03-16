@@ -11,12 +11,18 @@ from ...core.security import get_current_user
 from ...database import get_session
 from ...models.enums import AgentStatusEnum
 from ...models.user import User
+from ...schemas.agents import (
+    AgentClassCreateRequest,
+    AgentCreateRequest,
+    AgentStatusUpdateRequest,
+    AgentUpdateRequest,
+)
 from ...services import AgentService
 
 router = APIRouter()
 
 
-@router.get("/agents", response_model=dict)
+@router.get("/agents", response_model=None)
 async def list_agents(
     status: AgentStatusEnum | None = None,
     domain: str | None = None,
@@ -26,7 +32,7 @@ async def list_agents(
 ):
     """List all agents with optional filters"""
     service = AgentService(session)
-    agents = await service.get_agents(
+    agents, total = await service.get_agents_with_count(
         status=status, domain=domain, skip=skip, limit=limit
     )
 
@@ -35,14 +41,15 @@ async def list_agents(
         "meta": {
             "page": skip // limit + 1,
             "limit": limit,
-            "total": len(agents),  # Note: Should use count query for real total
+            "total": total,
+            "total_pages": (total + limit - 1) // limit,
         },
     }
 
 
-@router.post("/agents", response_model=dict)
+@router.post("/agents", response_model=None, status_code=201)
 async def create_agent(
-    agent_data: dict,
+    agent_data: AgentCreateRequest,
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
@@ -50,30 +57,29 @@ async def create_agent(
     service = AgentService(session)
 
     agent = await service.create_agent(
-        name=agent_data["name"],
-        gender=agent_data["gender"],
-        class_id=UUID(agent_data["class_id"]),
-        domain=agent_data["domain"],
-        role_description=agent_data.get("role_description", ""),
-        personality=agent_data.get("personality", {}),
-        llm_config_id=UUID(agent_data["llm_config_id"]),
-        avatar_config=agent_data.get("avatar_config", {}),
-        is_orchestrator=agent_data.get("is_orchestrator", False),
+        name=agent_data.name,
+        gender=agent_data.gender,
+        class_id=agent_data.class_id,
+        domain=agent_data.domain,
+        role_description=agent_data.role_description,
+        personality=agent_data.personality,
+        llm_config_id=agent_data.llm_config_id,
+        avatar_config=agent_data.avatar_config,
+        is_orchestrator=agent_data.is_orchestrator,
     )
 
     # Assign tools if provided
-    if "tool_assignments" in agent_data:
-        for assignment in agent_data["tool_assignments"]:
-            await service.assign_tool(
-                agent_id=agent.id,
-                tool_id=UUID(assignment["tool_id"]),
-                permissions=assignment.get("permissions", "READ_ONLY"),
-            )
+    for assignment in agent_data.tool_assignments:
+        await service.assign_tool(
+            agent_id=agent.id,
+            tool_id=assignment.tool_id,
+            permissions=assignment.permissions,
+        )
 
     return {"data": agent}
 
 
-@router.get("/agents/{agent_id}", response_model=dict)
+@router.get("/agents/{agent_id}", response_model=None)
 async def get_agent(
     agent_id: UUID,
     session: AsyncSession = Depends(get_session),
@@ -85,7 +91,6 @@ async def get_agent(
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
 
-    # Get agent tools
     tools = await service.get_agent_tools(agent_id)
 
     return {
@@ -96,16 +101,18 @@ async def get_agent(
     }
 
 
-@router.put("/agents/{agent_id}", response_model=dict)
+@router.put("/agents/{agent_id}", response_model=None)
 async def update_agent(
     agent_id: UUID,
-    updates: dict,
+    updates: AgentUpdateRequest,
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
     """Update agent"""
     service = AgentService(session)
-    agent = await service.update_agent(agent_id, **updates)
+    agent = await service.update_agent(
+        agent_id, **updates.model_dump(exclude_none=True)
+    )
 
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
@@ -113,7 +120,7 @@ async def update_agent(
     return {"data": agent}
 
 
-@router.delete("/agents/{agent_id}", response_model=dict)
+@router.delete("/agents/{agent_id}", status_code=204)
 async def delete_agent(
     agent_id: UUID,
     current_user: User = Depends(get_current_user),
@@ -126,27 +133,21 @@ async def delete_agent(
     if not success:
         raise HTTPException(status_code=404, detail="Agent not found")
 
-    return {"message": "Agent deleted successfully"}
 
-
-@router.patch("/agents/{agent_id}/status", response_model=dict)
+@router.patch("/agents/{agent_id}/status", response_model=None)
 async def update_agent_status(
     agent_id: UUID,
-    status_update: dict,
+    status_update: AgentStatusUpdateRequest,
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
     """Update agent status"""
     service = AgentService(session)
 
-    current_task_id = status_update.get("current_task_id")
-    if current_task_id:
-        current_task_id = UUID(current_task_id)
-
     agent = await service.update_agent_status(
         agent_id=agent_id,
-        status=AgentStatusEnum(status_update["status"]),
-        current_task_id=current_task_id,
+        status=status_update.status,
+        current_task_id=status_update.current_task_id,
     )
 
     if not agent:
@@ -155,10 +156,10 @@ async def update_agent_status(
     return {"data": agent}
 
 
-# Agent Classes endpoints
+# ── Agent Classes ─────────────────────────────────────────────────────────────
 
 
-@router.get("/agent-classes", response_model=dict)
+@router.get("/agent-classes", response_model=None)
 async def list_agent_classes(
     domain: str | None = None,
     is_custom: bool | None = None,
@@ -171,9 +172,9 @@ async def list_agent_classes(
     return {"data": classes}
 
 
-@router.post("/agent-classes", response_model=dict)
+@router.post("/agent-classes", response_model=None, status_code=201)
 async def create_agent_class(
-    class_data: dict,
+    class_data: AgentClassCreateRequest,
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
@@ -181,16 +182,16 @@ async def create_agent_class(
     service = AgentService(session)
 
     agent_class = await service.create_agent_class(
-        name=class_data["name"],
-        description=class_data.get("description", ""),
-        domain=class_data["domain"],
-        default_avatar_config=class_data.get("default_avatar_config", {}),
+        name=class_data.name,
+        description=class_data.description,
+        domain=class_data.domain,
+        default_avatar_config=class_data.default_avatar_config,
     )
 
     return {"data": agent_class}
 
 
-@router.get("/agent-classes/{class_id}", response_model=dict)
+@router.get("/agent-classes/{class_id}", response_model=None)
 async def get_agent_class(
     class_id: UUID,
     session: AsyncSession = Depends(get_session),

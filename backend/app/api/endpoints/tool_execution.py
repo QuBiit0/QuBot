@@ -11,6 +11,7 @@ from ...core.security import get_current_user
 from ...core.tools import register_default_tools
 from ...database import get_session
 from ...models.user import User
+from ...schemas.tool_execution import LlmToolsExecuteRequest, TaskToolsExecuteRequest, ToolExecuteRequest
 from ...services import ToolExecutionService
 
 router = APIRouter()
@@ -22,7 +23,7 @@ async def startup_event():
     register_default_tools()
 
 
-@router.get("/tools/available", response_model=dict)
+@router.get("/tools/available", response_model=None)
 async def list_available_tools(
     session: AsyncSession = Depends(get_session),
 ):
@@ -33,9 +34,9 @@ async def list_available_tools(
     return {"data": tools}
 
 
-@router.post("/tools/execute", response_model=dict)
+@router.post("/tools/execute", response_model=None)
 async def execute_tool(
-    execution_data: dict,
+    request: ToolExecuteRequest,
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
@@ -52,25 +53,11 @@ async def execute_tool(
     """
     service = ToolExecutionService(session)
 
-    tool_name = execution_data.get("tool_name")
-    params = execution_data.get("params", {})
-    agent_id = execution_data.get("agent_id")
-    task_id = execution_data.get("task_id")
-
-    if not tool_name:
-        raise HTTPException(status_code=400, detail="tool_name is required")
-
-    # Convert string UUIDs to UUID objects
-    if agent_id:
-        agent_id = UUID(agent_id)
-    if task_id:
-        task_id = UUID(task_id)
-
     result = await service.execute_tool(
-        tool_name=tool_name,
-        params=params,
-        agent_id=agent_id,
-        task_id=task_id,
+        tool_name=request.tool_name,
+        params=request.params,
+        agent_id=request.agent_id,
+        task_id=request.task_id,
     )
 
     return {
@@ -86,9 +73,9 @@ async def execute_tool(
     }
 
 
-@router.post("/tools/execute-with-llm", response_model=dict)
+@router.post("/tools/execute-with-llm", response_model=None)
 async def execute_with_llm_tools(
-    execution_data: dict,
+    request: LlmToolsExecuteRequest,
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
@@ -107,26 +94,14 @@ async def execute_with_llm_tools(
     """
     service = ToolExecutionService(session)
 
-    llm_config_id = UUID(execution_data["llm_config_id"])
-    messages = execution_data.get("messages", [])
-    system_prompt = execution_data.get("system_prompt")
-    max_iterations = execution_data.get("max_iterations", 5)
-    agent_id = execution_data.get("agent_id")
-    task_id = execution_data.get("task_id")
-
-    if agent_id:
-        agent_id = UUID(agent_id)
-    if task_id:
-        task_id = UUID(task_id)
-
     try:
         response = await service.run_with_tools(
-            llm_config_id=llm_config_id,
-            messages=messages,
-            system_prompt=system_prompt,
-            max_iterations=max_iterations,
-            agent_id=agent_id,
-            task_id=task_id,
+            llm_config_id=request.llm_config_id,
+            messages=[m.model_dump() for m in request.messages],
+            system_prompt=request.system_prompt,
+            max_iterations=request.max_iterations,
+            agent_id=request.agent_id,
+            task_id=request.task_id,
         )
 
         return {
@@ -156,10 +131,10 @@ async def execute_with_llm_tools(
         raise HTTPException(status_code=500, detail=f"Execution error: {str(e)}")
 
 
-@router.post("/tasks/{task_id}/execute-tools", response_model=dict)
+@router.post("/tasks/{task_id}/execute-tools", response_model=None)
 async def execute_task_with_tools(
     task_id: UUID,
-    execution_data: dict,
+    request: TaskToolsExecuteRequest,
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
@@ -184,7 +159,7 @@ async def execute_task_with_tools(
         raise HTTPException(status_code=404, detail="Task not found")
 
     # Get LLM config
-    llm_config_id = UUID(execution_data["llm_config_id"])
+    llm_config_id = request.llm_config_id
 
     # Build messages from task
     messages = [
@@ -197,8 +172,8 @@ async def execute_task_with_tools(
         if context:
             messages.insert(0, {"role": "system", "content": f"Context: {context}"})
 
-    system_prompt = execution_data.get("system_prompt")
-    max_iterations = execution_data.get("max_iterations", 5)
+    system_prompt = request.system_prompt
+    max_iterations = request.max_iterations
 
     try:
         response = await tool_service.run_with_tools(

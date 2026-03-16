@@ -1,0 +1,105 @@
+groups:
+  - name: qubot-api
+    rules:
+      # ── High error rate ──────────────────────────────────────────────────────
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(http_requests_total{job="qubot-api", status=~"5.."}[5m]))
+          /
+          sum(rate(http_requests_total{job="qubot-api"}[5m]))
+          > 0.05
+        for: 2m
+        labels:
+          severity: critical
+          team: backend
+        annotations:
+          summary: "High 5xx error rate on Qubot API"
+          description: "Error rate is {{ $value | humanizePercentage }} (threshold: 5%) over the last 5 minutes."
+          runbook: "https://docs.qubot.io/runbooks/high-error-rate"
+
+      # ── High P99 latency ─────────────────────────────────────────────────────
+      - alert: HighP99Latency
+        expr: |
+          histogram_quantile(
+            0.99,
+            sum(rate(http_request_duration_seconds_bucket{job="qubot-api"}[5m])) by (le)
+          ) > 2.0
+        for: 5m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "P99 API latency exceeds 2 seconds"
+          description: "P99 latency is {{ $value | humanizeDuration }} (threshold: 2s)."
+          runbook: "https://docs.qubot.io/runbooks/high-latency"
+
+      # ── API down ─────────────────────────────────────────────────────────────
+      - alert: ApiDown
+        expr: up{job="qubot-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: backend
+        annotations:
+          summary: "Qubot API is unreachable"
+          description: "Prometheus cannot scrape the API metrics endpoint."
+
+  - name: qubot-worker
+    rules:
+      # ── Large dead-letter queue ──────────────────────────────────────────────
+      - alert: DeadLetterQueueGrowing
+        expr: qubot_worker_dead_letter_count > 10
+        for: 5m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "Dead-letter queue has {{ $value }} messages"
+          description: "More than 10 tasks have been sent to the dead-letter queue. Check worker logs."
+
+      # ── Worker queue backing up ──────────────────────────────────────────────
+      - alert: WorkerQueueHigh
+        expr: qubot_worker_queue_depth > 200
+        for: 3m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "Worker task queue depth is {{ $value }}"
+          description: "Queue has been above 200 tasks for 3 minutes. Consider scaling workers."
+
+      # ── Worker down ──────────────────────────────────────────────────────────
+      - alert: WorkerDown
+        expr: up{job="qubot-worker"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          team: backend
+        annotations:
+          summary: "Qubot Worker is unreachable"
+          description: "The background task worker is not responding."
+
+  - name: qubot-infrastructure
+    rules:
+      # ── Database connection pool saturation ──────────────────────────────────
+      - alert: DatabasePoolSaturated
+        expr: |
+          qubot_db_pool_size_current / qubot_db_pool_size_max > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          team: infra
+        annotations:
+          summary: "Database connection pool is {{ $value | humanizePercentage }} full"
+          description: "The SQLAlchemy pool is near capacity. Consider increasing DB_POOL_SIZE."
+
+      # ── High WebSocket connections ────────────────────────────────────────────
+      - alert: WebSocketConnectionsHigh
+        expr: qubot_websocket_connections_active > 500
+        for: 10m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "{{ $value }} active WebSocket connections"
+          description: "WebSocket connections are high. Monitor memory usage."

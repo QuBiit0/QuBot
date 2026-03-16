@@ -1,67 +1,53 @@
 # Production Deployment Checklist
 
+Use this checklist before every production deployment.
+
+---
+
 ## Security
 
-- [ ] `SECRET_KEY` is unique, >= 32 chars, stored in a secrets manager (not in `.env` committed to git)
-- [ ] `DEBUG=false`
-- [ ] `ALLOWED_ORIGINS` restricted to your production domains only
-- [ ] SSL certificate configured in nginx (uncomment HTTPS block in `nginx/nginx.conf`)
-- [ ] HTTP → HTTPS redirect enabled
-- [ ] Rate limiting active (`RATE_LIMIT_ENABLED=true`)
-- [ ] All LLM API keys are valid and scoped to minimal permissions
-- [ ] `ADMIN_PASSWORD` is strong and changed from the default
-- [ ] OpenAPI docs disabled or password-protected (`/docs` and `/redoc`)
-- [ ] No hardcoded credentials in any source file (`grep -r "password\|secret\|api_key" --include="*.py" app/`)
+- [ ] `SECRET_KEY` is unique, at least 32 characters, and not committed to source control
+- [ ] SSL certificate is valid and auto-renewal is configured
+- [ ] CORS `ALLOWED_ORIGINS` is restricted to production domains only (not `*`)
+- [ ] Rate limiting is active on auth endpoints (`5/min` login, `3/min` register)
+- [ ] Security headers middleware is enabled (`X-Content-Type-Options`, `X-Frame-Options`, `HSTS`)
+- [ ] All LLM API keys (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, etc.) are valid and have usage limits set
+- [ ] `DEBUG=false` in production environment
 
 ## Infrastructure
 
-- [ ] PostgreSQL running with persistent volume
-- [ ] Redis running with persistent volume
-- [ ] Backups scheduled (`scripts/backup-db.sh` via cron)
-- [ ] All Docker healthchecks passing (`docker compose ps`)
-- [ ] Nginx proxy config validated (`nginx -t`)
-- [ ] Firewall rules: only ports 80/443 publicly exposed
+- [ ] PostgreSQL is running and accessible; connection pool settings are configured
+- [ ] Redis is running and accessible (required for WebSocket pub/sub and task queue)
+- [ ] All Docker containers are healthy (`docker compose ps`)
+- [ ] Nginx reverse proxy is configured with SSL and gzip compression
+- [ ] Log aggregation is collecting API and worker logs
+- [ ] Backups are scheduled and tested (`scripts/backup-db.sh`)
 
 ## Application
 
-- [ ] Database migrations applied (`alembic upgrade head` or equivalent)
-- [ ] Admin user seeded
-- [ ] `NEXT_PUBLIC_API_URL` points to production API
-- [ ] `NEXT_PUBLIC_WS_URL` points to production WebSocket
-- [ ] Frontend build succeeds (`npm run build`)
-- [ ] All environment variables in `.env` are set (compare with `.env.example`)
+- [ ] Database migrations are up to date (`alembic upgrade head`)
+- [ ] `NEXT_PUBLIC_API_URL` points to the correct backend URL
+- [ ] `NEXT_PUBLIC_WS_URL` points to the correct WebSocket URL
+- [ ] At least one LLM config is seeded in the database
+- [ ] Worker process is running (`python -m app.worker`)
 
-## Observability
+## Monitoring
 
-- [ ] Structured logging outputting JSON (check `LOG_LEVEL` and `DEBUG=false`)
-- [ ] Log aggregation running (Loki/Promtail or equivalent)
-- [ ] Grafana dashboards accessible
-- [ ] Health endpoints responding:
-  - `GET /health` → nginx
-  - `GET /api/v1/health` → backend
-- [ ] Alerts configured for: error rate > 5%, P99 latency > 2s, worker queue depth
+- [ ] Health check endpoints respond: `GET /api/v1/health` → 200
+- [ ] Grafana dashboards are accessible and data is flowing
+- [ ] Alerts are configured: error rate > 5%, latency P99 > 2s, worker queue > 100
+- [ ] OpenAPI docs are disabled in production
 
-## Performance
+## Code Quality
 
-- [ ] Database connection pool sized appropriately (`POOL_SIZE`, `POOL_MAX_OVERFLOW`)
-- [ ] Redis memory limits set
-- [ ] Nginx gzip compression enabled (already on)
-- [ ] Static file caching headers set (already on)
-- [ ] Worker replicas >= 2 (`WORKER_REPLICAS=2`)
+- [ ] `ruff check .` passes with 0 errors (backend)
+- [ ] `tsc --noEmit` passes with 0 type errors (frontend)
+- [ ] `pytest --cov=app --cov-fail-under=80` passes
+- [ ] `npm run build` succeeds without errors
 
-## CI/CD
+## Post-Deployment Smoke Tests
 
-- [ ] GitHub Actions CI pipeline passing (`ci.yml`)
-- [ ] Branch protection on `main` (require PR + CI pass)
-- [ ] Container registry credentials configured
-- [ ] Deploy pipeline tested end-to-end
-
-## Post-Deploy Verification
-
-- [ ] Login / register works
-- [ ] Agent CRUD works
-- [ ] Task CRUD and Kanban drag-drop works
-- [ ] WebSocket connection established (check connection indicator in UI)
-- [ ] LLM execution works (create agent, run task)
-- [ ] Worker processes tasks from queue
-- [ ] Logs appearing in aggregator
+- [ ] Login → dashboard loads → agents visible → tasks visible
+- [ ] WebSocket connection established (browser DevTools → Network → WS)
+- [ ] Chat sends a message and receives a streaming response
+- [ ] Kanban drag-and-drop updates task status via API

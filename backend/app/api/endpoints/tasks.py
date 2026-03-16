@@ -9,20 +9,26 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...core.security import get_current_user
 from ...database import get_session
-from ...models.enums import PriorityEnum, TaskStatusEnum
+from ...models.enums import PriorityEnum, TaskEventTypeEnum, TaskStatusEnum
 from ...models.user import User
+from ...schemas.tasks import (
+    SubtaskCreateRequest,
+    TaskAssignRequest,
+    TaskCreateRequest,
+    TaskEventRequest,
+    TaskStatusUpdateRequest,
+)
 from ...services import TaskService
 
 router = APIRouter()
 
 
-@router.get("/tasks", response_model=dict)
+@router.get("/tasks", response_model=None)
 async def list_tasks(
     status: TaskStatusEnum | None = None,
     priority: PriorityEnum | None = None,
     domain: str | None = None,
     assigned_agent_id: UUID | None = None,
-    parent_task_id: UUID | None = None,
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     session: AsyncSession = Depends(get_session),
@@ -30,7 +36,7 @@ async def list_tasks(
     """List tasks with filters - supports Kanban board"""
     service = TaskService(session)
 
-    tasks = await service.get_tasks(
+    tasks, total = await service.get_tasks_with_count(
         status=status,
         priority=priority,
         domain_hint=domain,
@@ -44,14 +50,15 @@ async def list_tasks(
         "meta": {
             "page": skip // limit + 1,
             "limit": limit,
-            "total": len(tasks),
+            "total": total,
+            "total_pages": (total + limit - 1) // limit,
         },
     }
 
 
-@router.post("/tasks", response_model=dict)
+@router.post("/tasks", response_model=None, status_code=201)
 async def create_task(
-    task_data: dict,
+    task_data: TaskCreateRequest,
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
@@ -59,23 +66,19 @@ async def create_task(
     service = TaskService(session)
 
     task = await service.create_task(
-        title=task_data["title"],
-        description=task_data.get("description", ""),
-        priority=PriorityEnum(task_data.get("priority", "MEDIUM")),
-        domain_hint=task_data.get("domain_hint"),
-        assigned_agent_id=UUID(task_data["assigned_agent_id"])
-        if task_data.get("assigned_agent_id")
-        else None,
-        parent_task_id=UUID(task_data["parent_task_id"])
-        if task_data.get("parent_task_id")
-        else None,
-        created_by=task_data.get("created_by", "user"),
+        title=task_data.title,
+        description=task_data.description,
+        priority=task_data.priority,
+        domain_hint=task_data.domain_hint,
+        assigned_agent_id=task_data.assigned_agent_id,
+        parent_task_id=task_data.parent_task_id,
+        created_by=str(current_user.id),
     )
 
     return {"data": task}
 
 
-@router.get("/tasks/{task_id}", response_model=dict)
+@router.get("/tasks/{task_id}", response_model=None)
 async def get_task(
     task_id: UUID,
     session: AsyncSession = Depends(get_session),
@@ -99,24 +102,20 @@ async def get_task(
     }
 
 
-@router.patch("/tasks/{task_id}/status", response_model=dict)
+@router.patch("/tasks/{task_id}/status", response_model=None)
 async def update_task_status(
     task_id: UUID,
-    status_update: dict,
+    status_update: TaskStatusUpdateRequest,
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
     """Update task status (Kanban column move)"""
     service = TaskService(session)
 
-    agent_id = (
-        UUID(status_update["agent_id"]) if status_update.get("agent_id") else None
-    )
-
     task = await service.update_task_status(
         task_id=task_id,
-        new_status=TaskStatusEnum(status_update["status"]),
-        agent_id=agent_id,
+        new_status=status_update.status,
+        agent_id=status_update.agent_id,
     )
 
     if not task:
@@ -125,10 +124,10 @@ async def update_task_status(
     return {"data": task}
 
 
-@router.patch("/tasks/{task_id}/assign", response_model=dict)
+@router.patch("/tasks/{task_id}/assign", response_model=None)
 async def assign_task(
     task_id: UUID,
-    assignment: dict,
+    assignment: TaskAssignRequest,
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
@@ -137,7 +136,7 @@ async def assign_task(
 
     task = await service.assign_task(
         task_id=task_id,
-        agent_id=UUID(assignment["agent_id"]),
+        agent_id=assignment.agent_id,
     )
 
     if not task:
@@ -146,25 +145,21 @@ async def assign_task(
     return {"data": task}
 
 
-@router.post("/tasks/{task_id}/events", response_model=dict)
+@router.post("/tasks/{task_id}/events", response_model=None, status_code=201)
 async def add_task_event(
     task_id: UUID,
-    event_data: dict,
+    event_data: TaskEventRequest,
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
     """Add event to task history"""
-    from ...models.enums import TaskEventTypeEnum
-
     service = TaskService(session)
-
-    agent_id = UUID(event_data["agent_id"]) if event_data.get("agent_id") else None
 
     event = await service.create_task_event(
         task_id=task_id,
-        event_type=TaskEventTypeEnum(event_data["type"]),
-        payload=event_data.get("payload", {}),
-        agent_id=agent_id,
+        event_type=TaskEventTypeEnum(event_data.event_type),
+        payload=event_data.payload,
+        agent_id=event_data.agent_id,
     )
 
     return {"data": event}
@@ -173,10 +168,10 @@ async def add_task_event(
 # Subtask endpoints
 
 
-@router.post("/tasks/{task_id}/subtasks", response_model=dict)
+@router.post("/tasks/{task_id}/subtasks", response_model=None, status_code=201)
 async def create_subtask(
     task_id: UUID,
-    subtask_data: dict,
+    subtask_data: SubtaskCreateRequest,
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
@@ -184,12 +179,11 @@ async def create_subtask(
     service = TaskService(session)
 
     subtask = await service.create_task(
-        title=subtask_data["title"],
-        description=subtask_data.get("description", ""),
-        priority=PriorityEnum(subtask_data.get("priority", "MEDIUM")),
-        domain_hint=subtask_data.get("domain_hint"),
+        title=subtask_data.title,
+        description=subtask_data.description,
+        priority=subtask_data.priority,
         parent_task_id=task_id,
-        created_by=subtask_data.get("created_by", "user"),
+        created_by=str(current_user.id),
     )
 
     return {"data": subtask}
@@ -198,7 +192,7 @@ async def create_subtask(
 # Kanban board view
 
 
-@router.get("/tasks/kanban/board", response_model=dict)
+@router.get("/tasks/kanban/board", response_model=None)
 async def get_kanban_board(
     domain: str | None = None,
     session: AsyncSession = Depends(get_session),
@@ -206,24 +200,23 @@ async def get_kanban_board(
     """Get all tasks organized by status for Kanban view"""
     service = TaskService(session)
 
-    # Get all tasks
     tasks = await service.get_tasks(domain_hint=domain, limit=1000)
 
-    # Organize by status
-    columns = {
+    columns: dict[str, list] = {
         "backlog": [],
         "in_progress": [],
         "done": [],
         "failed": [],
     }
 
+    status_map = {
+        TaskStatusEnum.BACKLOG: "backlog",
+        TaskStatusEnum.IN_PROGRESS: "in_progress",
+        TaskStatusEnum.DONE: "done",
+        TaskStatusEnum.FAILED: "failed",
+    }
+
     for task in tasks:
-        status_map = {
-            TaskStatusEnum.BACKLOG: "backlog",
-            TaskStatusEnum.IN_PROGRESS: "in_progress",
-            TaskStatusEnum.DONE: "done",
-            TaskStatusEnum.FAILED: "failed",
-        }
         column = status_map.get(task.status, "backlog")
         columns[column].append(task)
 
@@ -233,7 +226,7 @@ async def get_kanban_board(
 # Task stats
 
 
-@router.get("/tasks/stats/overview", response_model=dict)
+@router.get("/tasks/stats/overview", response_model=None)
 async def get_task_stats(
     session: AsyncSession = Depends(get_session),
 ):

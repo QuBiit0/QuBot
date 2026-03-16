@@ -14,6 +14,8 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
+import structlog
+
 try:
     import redis.asyncio as redis
 
@@ -27,8 +29,7 @@ from .config import settings
 from .database import AsyncSessionLocal
 from .services.execution_service import ExecutionService
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 class TaskWorker:
@@ -71,7 +72,7 @@ class TaskWorker:
         """Start the worker"""
         self.CONSUMER_NAME = consumer_name or f"worker-{datetime.utcnow().timestamp()}"
 
-        logger.info(f"Starting worker: {self.CONSUMER_NAME}")
+        logger.info("worker_start", consumer=self.CONSUMER_NAME)
 
         # Connect to Redis
         self.redis = redis.from_url(settings.REDIS_URL)
@@ -92,13 +93,13 @@ class TaskWorker:
         try:
             await self._process_loop()
         except asyncio.CancelledError:
-            logger.info("Worker cancelled")
+            logger.info("worker_cancelled")
         finally:
             await self.shutdown()
 
     async def shutdown(self):
         """Graceful shutdown"""
-        logger.info("Shutting down worker...")
+        logger.info("worker_shutdown_start")
         self.running = False
         self._shutdown_event.set()
 
@@ -117,13 +118,13 @@ class TaskWorker:
         if self.redis:
             await self.redis.close()
 
-        logger.info("Worker shutdown complete")
+        logger.info("worker_shutdown_complete")
 
     def _setup_signals(self):
         """Set up signal handlers for graceful shutdown"""
 
         def signal_handler(sig, frame):
-            logger.info(f"Received signal {sig}")
+            logger.info("signal_received", signal=sig)
             asyncio.create_task(self.shutdown())
             sys.exit(0)
 
@@ -139,10 +140,10 @@ class TaskWorker:
                 id="0",  # From beginning
                 mkstream=True,
             )
-            logger.info(f"Created consumer group: {self.TASK_GROUP}")
+            logger.info("consumer_group_created", group=self.TASK_GROUP)
         except redis.ResponseError as e:
             if "already exists" in str(e):
-                logger.info(f"Consumer group already exists: {self.TASK_GROUP}")
+                logger.info("consumer_group_exists", group=self.TASK_GROUP)
             else:
                 raise
 
@@ -162,7 +163,7 @@ class TaskWorker:
                 )
                 await asyncio.sleep(self.HEARTBEAT_INTERVAL)
             except Exception as e:
-                logger.error(f"Heartbeat error: {e}")
+                logger.error("heartbeat_error", error=str(e))
                 await asyncio.sleep(1)
 
     async def _claim_pending_loop(self):
@@ -172,7 +173,7 @@ class TaskWorker:
                 await self._claim_pending_messages()
                 await asyncio.sleep(self.CLAIM_INTERVAL)
             except Exception as e:
-                logger.error(f"Claim pending error: {e}")
+                logger.error("claim_pending_error", error=str(e))
                 await asyncio.sleep(1)
 
     async def _claim_pending_messages(self):
@@ -186,7 +187,7 @@ class TaskWorker:
         if not pending or pending.get("pending", 0) == 0:
             return
 
-        logger.debug(f"Found {pending['pending']} pending messages")
+        logger.debug("pending_messages_found", count=pending['pending'])
 
         # Claim messages idle for more than 60 seconds
         claimed = await self.redis.xautoclaim(
@@ -198,7 +199,7 @@ class TaskWorker:
         )
 
         if claimed and claimed[1]:  # claimed[1] is the list of messages
-            logger.info(f"Claimed {len(claimed[1])} pending messages")
+            logger.info("claimed_pending_messages", count=len(claimed[1]))
             for message in claimed[1]:
                 await self._process_message(message)
 
@@ -224,7 +225,7 @@ class TaskWorker:
                         await self._process_message((msg_id, fields))
 
             except Exception as e:
-                logger.error(f"Processing error: {e}")
+                logger.error("processing_loop_error", error=str(e))
                 await asyncio.sleep(1)
 
     async def _process_message(self, message: tuple):
@@ -242,25 +243,25 @@ class TaskWorker:
 
             task_id = data.get("task_id")
             if not task_id:
-                logger.error(f"Message missing task_id: {data}")
+                logger.error("message_missing_task_id", data=str(data))
                 await self._ack_message(msg_id)
                 return
 
-            logger.info(f"Processing task: {task_id}")
+            logger.info("processing_task", task_id=str(task_id))
 
             # Execute task
             result = await self._execute_task(UUID(task_id))
 
             if result.get("success"):
-                logger.info(f"Task completed: {task_id}")
+                logger.info("task_completed", task_id=str(task_id))
             else:
-                logger.error(f"Task failed: {task_id} - {result.get('error')}")
+                logger.error("task_failed", task_id=str(task_id), error=result.get('error'))
 
             # Acknowledge message
             await self._ack_message(msg_id)
 
         except Exception as e:
-            logger.error(f"Error processing message {msg_id}: {e}")
+            logger.error("message_processing_error", msg_id=str(msg_id), error=str(e))
             await self._handle_retry(msg_id, data if "data" in dir() else {}, str(e))
 
     async def _execute_task(self, task_id: UUID) -> dict[str, Any]:
@@ -279,7 +280,7 @@ class TaskWorker:
 
             except Exception as e:
                 await session.rollback()
-                logger.error(f"Task execution error: {e}")
+                logger.error("task_execution_error", error=str(e))
                 return {"success": False, "error": str(e)}
 
     async def _ack_message(self, msg_id: bytes):
@@ -291,7 +292,7 @@ class TaskWorker:
                 msg_id,
             )
         except Exception as e:
-            logger.error(f"Error acknowledging message: {e}")
+            logger.error("ack_error", error=str(e))
 
     async def _handle_retry(self, msg_id: bytes, data: dict, error: str):
         """Handle retry logic with dead-letter queue"""
@@ -312,14 +313,19 @@ class TaskWorker:
                 await self._ack_message(msg_id)
                 await self.redis.hdel(self.RETRY_HASH, msg_key)
                 logger.warning(
-                    f"Task {data.get('task_id')} moved to dead-letter after {retry_count} retries"
+                    "task_dead_lettered",
+                    task_id=data.get("task_id"),
+                    retries=retry_count,
                 )
             else:
                 logger.info(
-                    f"Task {data.get('task_id')} retry {retry_count}/{self.MAX_RETRIES}"
+                    "task_retry",
+                    task_id=data.get("task_id"),
+                    attempt=retry_count,
+                    max_retries=self.MAX_RETRIES,
                 )
         except Exception as e:
-            logger.error(f"Error handling retry for {msg_id}: {e}")
+            logger.error("retry_handling_error", msg_id=str(msg_id), error=str(e))
 
 
 class TaskQueue:
@@ -379,7 +385,7 @@ class TaskQueue:
             message,
         )
 
-        logger.info(f"Submitted task {task_id} to queue: {msg_id}")
+        logger.info("task_submitted", task_id=str(task_id), msg_id=str(msg_id))
         return msg_id
 
     async def get_queue_stats(self) -> dict[str, Any]:
@@ -448,4 +454,4 @@ if __name__ == "__main__":
     try:
         asyncio.run(run_worker(consumer_name))
     except KeyboardInterrupt:
-        logger.info("Worker stopped by user")
+        logger.info("worker_stopped_by_user")

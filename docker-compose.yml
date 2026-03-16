@@ -208,6 +208,7 @@ services:
     restart: unless-stopped
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
     volumes:
       - grafana_data:/var/lib/grafana
       - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
@@ -216,6 +217,40 @@ services:
       - "3001:3000"
     depends_on:
       - prometheus
+      - loki
+    networks:
+      - qubot-network
+    profiles:
+      - monitoring
+
+  # Optional: Loki for log aggregation
+  loki:
+    image: grafana/loki:latest
+    container_name: qubot-loki
+    restart: unless-stopped
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - ./monitoring/loki/loki-config.yaml:/etc/loki/local-config.yaml:ro
+      - loki_data:/loki
+    ports:
+      - "3100:3100"
+    networks:
+      - qubot-network
+    profiles:
+      - monitoring
+
+  # Optional: Promtail to ship container logs to Loki
+  promtail:
+    image: grafana/promtail:latest
+    container_name: qubot-promtail
+    restart: unless-stopped
+    command: -config.file=/etc/promtail/config.yaml
+    volumes:
+      - ./monitoring/promtail/promtail-config.yaml:/etc/promtail/config.yaml:ro
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    depends_on:
+      - loki
     networks:
       - qubot-network
     profiles:
@@ -235,6 +270,8 @@ volumes:
   prometheus_data:
     driver: local
   grafana_data:
+    driver: local
+  loki_data:
     driver: local
 
 networks:

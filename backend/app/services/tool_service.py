@@ -4,6 +4,7 @@ Tool Service - Business logic for tool management
 
 from uuid import UUID
 
+from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -60,6 +61,14 @@ class ToolService:
         query = query.offset(skip).limit(limit)
         result = await self.session.execute(query)
         return result.scalars().all()
+
+    async def count_tools(self, tool_type: ToolTypeEnum | None = None) -> int:
+        """Return total number of tools"""
+        query = select(func.count()).select_from(Tool)
+        if tool_type:
+            query = query.where(Tool.type == tool_type)
+        result = await self.session.execute(query)
+        return result.scalar_one()
 
     async def update_tool(self, tool_id: UUID, **updates) -> Tool | None:
         """Update tool fields"""

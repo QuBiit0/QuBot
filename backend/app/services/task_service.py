@@ -2,9 +2,11 @@
 Task Service - Business logic for task management
 """
 
+import asyncio
 from datetime import datetime
 from uuid import UUID
 
+from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import desc, select
 
@@ -94,6 +96,54 @@ class TaskService:
         query = query.order_by(desc(Task.created_at)).offset(skip).limit(limit)
         result = await self.session.execute(query)
         return result.scalars().all()
+
+    async def count_tasks(
+        self,
+        status: TaskStatusEnum | None = None,
+        assigned_agent_id: UUID | None = None,
+        domain_hint: str | None = None,
+        priority: PriorityEnum | None = None,
+    ) -> int:
+        """Return total number of tasks matching the given filters"""
+        query = select(func.count()).select_from(Task)
+        if status:
+            query = query.where(Task.status == status)
+        if assigned_agent_id:
+            query = query.where(Task.assigned_agent_id == assigned_agent_id)
+        if domain_hint:
+            query = query.where(Task.domain_hint == domain_hint)
+        if priority:
+            query = query.where(Task.priority == priority)
+        result = await self.session.execute(query)
+        return result.scalar_one()
+
+    async def get_tasks_with_count(
+        self,
+        status: TaskStatusEnum | None = None,
+        assigned_agent_id: UUID | None = None,
+        domain_hint: str | None = None,
+        priority: PriorityEnum | None = None,
+        skip: int = 0,
+        limit: int = 100,
+    ) -> tuple[list[Task], int]:
+        """Get paginated tasks and total count in parallel"""
+        tasks, total = await asyncio.gather(
+            self.get_tasks(
+                status=status,
+                assigned_agent_id=assigned_agent_id,
+                domain_hint=domain_hint,
+                priority=priority,
+                skip=skip,
+                limit=limit,
+            ),
+            self.count_tasks(
+                status=status,
+                assigned_agent_id=assigned_agent_id,
+                domain_hint=domain_hint,
+                priority=priority,
+            ),
+        )
+        return tasks, total
 
     async def update_task_status(
         self,

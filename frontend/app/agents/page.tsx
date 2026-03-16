@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAgents } from '@/hooks/useAgents';
 import { useAgentsStore } from '@/store/agents.store';
 import { useCreateAgent } from '@/hooks/useAgents';
@@ -32,15 +32,6 @@ export default function AgentsPage() {
   const { isLoading, error, refetch } = useAgents();
   const agents = useAgentsStore((s) => Object.values(s.agents));
   const createAgent = useCreateAgent();
-
-  // Initialize mock data
-  useEffect(() => {
-    const init = async () => {
-      const { initializeMockData } = await import('@/lib/mock-data');
-      initializeMockData();
-    };
-    init();
-  }, []);
 
   const handleCreateAgent = (agentData: Parameters<typeof createAgent.mutate>[0]) => {
     createAgent.mutate(agentData, {

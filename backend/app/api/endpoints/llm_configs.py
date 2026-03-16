@@ -10,12 +10,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...core.providers import ToolDefinition
 from ...database import get_session
 from ...models.enums import LlmProviderEnum
+from ...schemas.llm_configs import ChatCompletionRequest, LlmConfigCreateRequest, LlmConfigUpdateRequest
 from ...services import LLMService
 
 router = APIRouter()
 
 
-@router.get("/llm-configs", response_model=dict)
+@router.get("/llm-configs", response_model=None)
 async def list_llm_configs(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
@@ -38,29 +39,29 @@ async def list_llm_configs(
     }
 
 
-@router.post("/llm-configs", response_model=dict)
+@router.post("/llm-configs", response_model=None)
 async def create_llm_config(
-    config_data: dict,
+    request: LlmConfigCreateRequest,
     session: AsyncSession = Depends(get_session),
 ):
     """Create a new LLM configuration"""
     service = LLMService(session)
 
     config = await service.create_config(
-        name=config_data["name"],
-        provider=LlmProviderEnum(config_data["provider"]),
-        model_name=config_data["model_name"],
-        api_key_ref=config_data.get("api_key_ref"),
-        temperature=config_data.get("temperature", 0.7),
-        max_tokens=config_data.get("max_tokens", 4096),
-        top_p=config_data.get("top_p", 1.0),
-        extra_config=config_data.get("extra_config", {}),
+        name=request.name,
+        provider=request.provider,
+        model_name=request.model_name,
+        api_key_ref=request.api_key_ref,
+        temperature=request.temperature,
+        max_tokens=request.max_tokens,
+        top_p=request.top_p,
+        extra_config=request.extra_config,
     )
 
     return {"data": config}
 
 
-@router.get("/llm-configs/{config_id}", response_model=dict)
+@router.get("/llm-configs/{config_id}", response_model=None)
 async def get_llm_config(
     config_id: UUID,
     session: AsyncSession = Depends(get_session),
@@ -75,14 +76,15 @@ async def get_llm_config(
     return {"data": config}
 
 
-@router.put("/llm-configs/{config_id}", response_model=dict)
+@router.put("/llm-configs/{config_id}", response_model=None)
 async def update_llm_config(
     config_id: UUID,
-    updates: dict,
+    request: LlmConfigUpdateRequest,
     session: AsyncSession = Depends(get_session),
 ):
     """Update LLM configuration"""
     service = LLMService(session)
+    updates = {k: v for k, v in request.model_dump().items() if v is not None}
     config = await service.update_config(config_id, **updates)
 
     if not config:
@@ -91,7 +93,7 @@ async def update_llm_config(
     return {"data": config}
 
 
-@router.delete("/llm-configs/{config_id}", response_model=dict)
+@router.delete("/llm-configs/{config_id}", response_model=None)
 async def delete_llm_config(
     config_id: UUID,
     session: AsyncSession = Depends(get_session),
@@ -109,7 +111,7 @@ async def delete_llm_config(
 # Providers info
 
 
-@router.get("/llm-providers", response_model=dict)
+@router.get("/llm-providers", response_model=None)
 async def list_llm_providers(
     session: AsyncSession = Depends(get_session),
 ):
@@ -217,7 +219,7 @@ async def list_llm_providers(
 # Test connectivity
 
 
-@router.post("/llm-configs/{config_id}/test", response_model=dict)
+@router.post("/llm-configs/{config_id}/test", response_model=None)
 async def test_llm_connection(
     config_id: UUID,
     session: AsyncSession = Depends(get_session),
@@ -235,7 +237,7 @@ async def test_llm_connection(
     }
 
 
-@router.get("/llm-configs/{config_id}/usage", response_model=dict)
+@router.get("/llm-configs/{config_id}/usage", response_model=None)
 async def get_llm_usage_stats(
     config_id: UUID,
     days: int = Query(30, ge=1, le=365),
@@ -252,10 +254,10 @@ async def get_llm_usage_stats(
 # Chat completion endpoint
 
 
-@router.post("/llm-configs/{config_id}/chat", response_model=dict)
+@router.post("/llm-configs/{config_id}/chat", response_model=None)
 async def chat_completion(
     config_id: UUID,
-    chat_data: dict,
+    request: ChatCompletionRequest,
     session: AsyncSession = Depends(get_session),
 ):
     """
@@ -270,19 +272,19 @@ async def chat_completion(
     """
     service = LLMService(session)
 
-    messages = chat_data.get("messages", [])
-    system_prompt = chat_data.get("system_prompt")
+    messages = [m.model_dump() for m in request.messages]
+    system_prompt = request.system_prompt
 
     # Convert tool definitions
     tools = None
-    if "tools" in chat_data:
+    if request.tools:
         tools = [
             ToolDefinition(
-                name=t["name"],
-                description=t["description"],
-                parameters=t["parameters"],
+                name=t.name,
+                description=t.description,
+                parameters=t.parameters,
             )
-            for t in chat_data["tools"]
+            for t in request.tools
         ]
 
     try:

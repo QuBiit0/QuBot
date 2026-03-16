@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -9,6 +9,8 @@ interface Message {
   content: string;
   tasksCreated?: number[];
   timestamp: Date;
+  streaming?: boolean;
+  statusText?: string;
 }
 
 function formatTime(d: Date) {
@@ -38,7 +40,7 @@ export default function ChatPanel() {
     if (open) setTimeout(() => inputRef.current?.focus(), 120);
   }, [open]);
 
-  const send = async () => {
+  const send = useCallback(async () => {
     const text = input.trim();
     if (!text || loading) return;
     setInput('');
@@ -49,35 +51,94 @@ export default function ChatPanel() {
       content: text,
       timestamp: new Date(),
     };
-    setMessages(prev => [...prev, userMsg]);
+
+    const assistantId = (Date.now() + 1).toString();
+    const assistantPlaceholder: Message = {
+      id: assistantId,
+      role: 'assistant',
+      content: '',
+      timestamp: new Date(),
+      streaming: true,
+      statusText: 'Analyzing…',
+    };
+
+    setMessages(prev => [...prev, userMsg, assistantPlaceholder]);
     setLoading(true);
 
     try {
-      const res = await fetch(`${API}/api/v1/chat/`, {
+      const res = await fetch(`${API}/api/v1/chat/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: text }),
       });
-      const data = await res.json();
-      const assistantMsg: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: data.reply || 'Task received.',
-        tasksCreated: data.tasks_created,
-        timestamp: new Date(),
+
+      if (!res.ok || !res.body) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      const updateMsg = (updater: (prev: Message) => Message) => {
+        setMessages(prev =>
+          prev.map(m => m.id === assistantId ? updater(m) : m)
+        );
       };
-      setMessages(prev => [...prev, assistantMsg]);
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+
+        let event = '';
+        for (const line of lines) {
+          if (line.startsWith('event: ')) {
+            event = line.slice(7).trim();
+          } else if (line.startsWith('data: ')) {
+            try {
+              const payload = JSON.parse(line.slice(6));
+              if (event === 'status') {
+                updateMsg(m => ({ ...m, statusText: payload.text as string }));
+              } else if (event === 'token') {
+                updateMsg(m => ({ ...m, content: m.content + (payload.text as string) }));
+              } else if (event === 'done') {
+                updateMsg(m => ({
+                  ...m,
+                  streaming: false,
+                  statusText: undefined,
+                  tasksCreated: payload.tasks_created as number[],
+                }));
+              } else if (event === 'error') {
+                updateMsg(m => ({
+                  ...m,
+                  streaming: false,
+                  statusText: undefined,
+                  content: `Error: ${payload.message as string}`,
+                }));
+              }
+            } catch {
+              // malformed JSON line — skip
+            }
+            event = '';
+          }
+        }
+      }
     } catch {
-      setMessages(prev => [...prev, {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: 'Connection error. Make sure the backend is running.',
-        timestamp: new Date(),
-      }]);
+      setMessages(prev =>
+        prev.map(m =>
+          m.id === assistantId
+            ? { ...m, streaming: false, statusText: undefined, content: 'Connection error. Make sure the backend is running.' }
+            : m
+        )
+      );
     } finally {
       setLoading(false);
     }
-  };
+  }, [input, loading]);
 
   const hasInput = input.trim().length > 0;
 
@@ -196,7 +257,16 @@ export default function ChatPanel() {
                       borderBottomLeftRadius: 4,
                     }}
                   >
+                    {msg.statusText && !msg.content && (
+                      <span style={{ color: '#3b6fff', fontStyle: 'italic' }}>{msg.statusText}</span>
+                    )}
                     {msg.content}
+                    {msg.streaming && (
+                      <span
+                        className="inline-block w-0.5 h-3 ml-0.5 animate-pulse align-middle"
+                        style={{ background: '#3b6fff' }}
+                      />
+                    )}
                     {msg.tasksCreated && msg.tasksCreated.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-1">
                         {msg.tasksCreated.map(id => (
@@ -218,35 +288,6 @@ export default function ChatPanel() {
               </div>
             ))}
 
-            {/* Typing indicator */}
-            {loading && (
-              <div className="flex items-end gap-2">
-                <div
-                  className="w-6 h-6 rounded-lg flex-shrink-0 flex items-center justify-center text-[10px] font-black"
-                  style={{ background: 'linear-gradient(135deg,#3b6fff,#7c3aed)', color: '#fff' }}
-                >
-                  L
-                </div>
-                <div
-                  className="px-3 py-2.5 rounded-xl"
-                  style={{
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.06)',
-                    borderBottomLeftRadius: 4,
-                  }}
-                >
-                  <div className="flex gap-1 items-center">
-                    {[0, 1, 2].map(i => (
-                      <span
-                        key={i}
-                        className="w-1.5 h-1.5 rounded-full animate-bounce"
-                        style={{ background: '#3b6fff', animationDelay: `${i * 0.15}s` }}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
 
             <div ref={bottomRef} />
           </div>

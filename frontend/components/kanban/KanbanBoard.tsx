@@ -13,9 +13,9 @@ import { KanbanDragOverlay } from './KanbanDragOverlay';
 
 const columns: { id: TaskStatus; title: string; color: string }[] = [
   { id: 'BACKLOG', title: 'Backlog', color: 'bg-slate-700' },
-  { id: 'TODO', title: 'To Do', color: 'bg-blue-600' },
+
   { id: 'IN_PROGRESS', title: 'In Progress', color: 'bg-yellow-600' },
-  { id: 'IN_REVIEW', title: 'Review', color: 'bg-purple-600' },
+  { id: 'FAILED', title: 'Failed', color: 'bg-red-600' },
   { id: 'DONE', title: 'Done', color: 'bg-green-600' },
 ];
 
@@ -33,9 +33,9 @@ export function KanbanBoard() {
   const tasksByStatus = useMemo(() => {
     const grouped: Record<TaskStatus, Task[]> = {
       BACKLOG: [],
-      TODO: [],
+
       IN_PROGRESS: [],
-      IN_REVIEW: [],
+      FAILED: [],
       DONE: [],
     };
     tasks.forEach((task) => {

@@ -31,6 +31,18 @@ class Settings(BaseSettings):
         description="Full database connection URL",
     )
 
+    # Database pool settings
+    DB_POOL_SIZE: int = Field(default=20, description="SQLAlchemy connection pool size")
+    DB_POOL_MAX_OVERFLOW: int = Field(
+        default=40, description="Max connections above pool_size"
+    )
+    DB_POOL_RECYCLE: int = Field(
+        default=3600, description="Recycle connections after N seconds"
+    )
+    DB_POOL_PRE_PING: bool = Field(
+        default=True, description="Test connections before use"
+    )
+
     # ============================================
     # Redis
     # ============================================

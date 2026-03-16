@@ -2,10 +2,14 @@
 Chat endpoint — receives user messages and orchestrates task creation + execution.
 """
 
+import asyncio
+import json
 import logging
+from collections.abc import AsyncGenerator
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -292,3 +296,130 @@ async def chat(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to process message: {str(exc)}",
         )
+
+
+def _sse(event: str, data: object) -> str:
+    """Format a Server-Sent Event."""
+    return f"event: {event}\ndata: {json.dumps(data)}\n\n"
+
+
+async def _stream_chat(
+    message: str,
+    session: AsyncSession,
+) -> AsyncGenerator[str, None]:
+    """Generate SSE tokens for a chat message."""
+    yield _sse("status", {"text": "Analyzing request…"})
+    await asyncio.sleep(0)
+
+    domain = _detect_domain(message)
+    yield _sse("status", {"text": f"Domain: {domain.value}. Finding best agent…"})
+    await asyncio.sleep(0)
+
+    llm_config_id = await _get_default_llm_config_id(session)
+    if not llm_config_id:
+        yield _sse("error", {"message": "No LLM configuration available."})
+        return
+
+    orchestrator = OrchestratorService(session)
+
+    try:
+        result = await orchestrator.process_task(
+            title=message[:200],
+            description=message,
+            llm_config_id=llm_config_id,
+            priority=PriorityEnum.MEDIUM,
+            requested_domain=domain,
+            input_data={"source": "chat", "original_message": message},
+            created_by="user",
+        )
+    except Exception as exc:
+        logger.exception("[chat/stream] orchestrator error: %s", exc)
+        yield _sse("error", {"message": str(exc)})
+        return
+
+    parent_task_id = result.get("parent_task_id")
+    success = result.get("success", False)
+    assigned_agent = result.get("assigned_agent", "System")
+    subtasks = result.get("subtasks", [])
+
+    actions: list[str] = []
+    tasks_created: list[int] = []
+
+    if parent_task_id:
+        try:
+            task_id = (
+                int(parent_task_id.split("-")[0])
+                if isinstance(parent_task_id, str)
+                else int(parent_task_id)
+            )
+            tasks_created.append(task_id)
+            actions.append(f"Task #{task_id} created")
+        except (ValueError, AttributeError):
+            actions.append(f"Task created (ID: {parent_task_id})")
+            tasks_created.append(0)
+
+    if assigned_agent and assigned_agent != "System":
+        actions.append(f"Assigned to {assigned_agent} ({domain.value})")
+    if subtasks:
+        actions.append(f"Broken down into {len(subtasks)} subtasks")
+
+    # Stream reply word-by-word for a typing effect
+    if success:
+        if subtasks:
+            reply = (
+                f"Got it! I've created task #{tasks_created[0] if tasks_created else 'N/A'} "
+                f"and broken it down into {len(subtasks)} subtasks. "
+                f"Assigned to {assigned_agent} ({domain.value}). "
+                "I'll coordinate the execution and keep you posted."
+            )
+        else:
+            reply = (
+                f"Got it! I've created task #{tasks_created[0] if tasks_created else 'N/A'} "
+                f"and assigned it to {assigned_agent} ({domain.value}). "
+                "I'll keep you posted as it progresses."
+            )
+    else:
+        error_msg = result.get("error", "Unknown error")
+        reply = f"I encountered an issue: {error_msg}. Please try again."
+
+    # Emit tokens (words) with small delay
+    words = reply.split(" ")
+    for i, word in enumerate(words):
+        chunk = word if i == 0 else " " + word
+        yield _sse("token", {"text": chunk})
+        await asyncio.sleep(0.02)
+
+    # Final event with metadata
+    yield _sse(
+        "done",
+        {
+            "tasks_created": tasks_created,
+            "actions_taken": actions,
+        },
+    )
+
+    await broadcast_activity(
+        status="completed" if success else "failed",
+        agent_name=assigned_agent,
+        message=f"Task processed: {message[:60]}{'...' if len(message) > 60 else ''}",
+    )
+    await broadcast_metrics()
+
+
+@router.post("/stream")
+async def chat_stream(
+    request: ChatRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Streaming chat endpoint using Server-Sent Events.
+    Events: status | token | done | error
+    """
+    return StreamingResponse(
+        _stream_chat(request.message, session),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )

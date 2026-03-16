@@ -227,7 +227,7 @@ export const authApi = {
 export const agentsApi = {
   getAll: async (page = 1, limit = 50): Promise<ApiResponse<Agent[]>> => {
     return fetchWithAuth<ApiResponse<Agent[]>>(
-      `${API_BASE_URL}/agents?page=${page}&limit=${limit}`
+      `${API_BASE_URL}/agents?skip=${(page-1)*limit}&limit=${limit}`
     );
   },
 
@@ -261,7 +261,7 @@ export const agentsApi = {
 export const tasksApi = {
   getAll: async (page = 1, limit = 50): Promise<ApiResponse<Task[]>> => {
     return fetchWithAuth<ApiResponse<Task[]>>(
-      `${API_BASE_URL}/tasks?page=${page}&limit=${limit}`
+      `${API_BASE_URL}/tasks?skip=${(page-1)*limit}&limit=${limit}`
     );
   },
 

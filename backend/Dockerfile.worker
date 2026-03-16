@@ -68,7 +68,7 @@ USER qubot
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:8000/api/v1/health/ready')" || exit 0
+    CMD python -c "import redis, os; r=redis.from_url(os.getenv('REDIS_URL','redis://redis:6379')); r.ping()" || exit 1
 
 # Run worker
 CMD ["python", "-m", "app.worker"]

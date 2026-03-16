@@ -38,15 +38,15 @@ export interface Agent {
 }
 
 // Task types
-export type TaskStatus = 'BACKLOG' | 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE';
+export type TaskStatus = 'BACKLOG' | 'IN_PROGRESS' | 'DONE' | 'FAILED';
 
 export interface Task {
   id: string;
   title: string;
   description?: string;
   status: TaskStatus;
-  priority: number;
-  agentId?: string | number;
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  assigned_agent_id?: string | null;
   assigned_to?: {
     id: string | number;
     name: string;
@@ -115,18 +115,17 @@ export interface NavItem {
 }
 
 // Domain configuration
-export const PRIORITY_CONFIG: Record<number, { label: string; color: string }> = {
-  0: { label: 'Low', color: '#8b949e' },
-  1: { label: 'Medium', color: '#58a6ff' },
-  2: { label: 'High', color: '#f0a500' },
-  3: { label: 'Critical', color: '#f85149' },
+export const PRIORITY_CONFIG: Record<string, { label: string; color: string }> = {
+  LOW: { label: 'Low', color: '#8b949e' },
+  MEDIUM: { label: 'Medium', color: '#58a6ff' },
+  HIGH: { label: 'High', color: '#f0a500' },
+  CRITICAL: { label: 'Critical', color: '#f85149' },
 };
 
 export const STATUS_CONFIG: Record<TaskStatus, { label: string; color: string }> = {
   BACKLOG: { label: 'Backlog', color: '#6b7c99' },
-  TODO: { label: 'To Do', color: '#8b949e' },
+  FAILED: { label: 'Failed', color: '#f85149' },
   IN_PROGRESS: { label: 'In Progress', color: '#f0a500' },
-  IN_REVIEW: { label: 'In Review', color: '#58a6ff' },
   DONE: { label: 'Done', color: '#3fb950' },
 };
 
