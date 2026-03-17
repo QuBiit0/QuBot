@@ -18,7 +18,7 @@ class AgentCreateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     gender: str = Field(..., min_length=1, max_length=20)
     class_id: UUID
-    domain: DomainEnum = DomainEnum.GENERAL
+    domain: DomainEnum = DomainEnum.TECH
     role_description: str = ""
     personality: dict = Field(default_factory=dict)
     llm_config_id: UUID
@@ -43,5 +43,5 @@ class AgentStatusUpdateRequest(BaseModel):
 class AgentClassCreateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     description: str = ""
-    domain: DomainEnum = DomainEnum.GENERAL
+    domain: DomainEnum = DomainEnum.TECH
     default_avatar_config: dict = Field(default_factory=dict)

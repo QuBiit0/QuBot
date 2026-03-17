@@ -72,10 +72,6 @@ class Agent(SQLModel, table=True):
     tools: list["AgentTool"] = Relationship(back_populates="agent")
     memories: list["AgentMemory"] = Relationship(back_populates="agent")
     llm_config: Optional["LlmConfig"] = Relationship(back_populates="agents")
-    skills: list["AgentSkill"] = Relationship(
-        back_populates="agent"
-    )  # Skills from skill system
-
     __table_args__ = (
         Index("idx_agent_status", "status"),
         Index("idx_agent_domain", "domain"),

@@ -11,7 +11,7 @@ import { AgentDesk } from './AgentDesk';
 const OFFICE_CONFIG = {
   MAX_AGENTS_PER_OFFICE: 8,
   MAX_OFFICES: 10,
-  SPACING_Y: 180,
+  SPACING_Y: 185,
   SPACING_X: 200,
   GRID_SIZE: 40,
 };
@@ -25,35 +25,64 @@ function getTimeOfDay(): TimeOfDay {
   return 'night';
 }
 
-const THEMES = {
+// Premium design tokens per theme
+const PREMIUM_THEMES = {
   day: {
-    wallTop: '#e8eef5', wallBottom: '#d0dae8',
-    floorTop: '#f0f4f8', floorBottom: '#e2e8f0',
-    windowSky: ['#87CEEB', '#E0F6FF'],
-    textColor: '#1a202c', accentColor: '#2563eb',
+    isDark: false,
+    bg0: '#eef2f7', bg1: '#e2e8f2',
+    wall0: '#dde4ef', wall1: '#ccd3e0',
+    floor0: '#eaf0f8', floor1: '#dde5f0',
+    tileStroke: '#c8d4e4',
+    accent: '#3b82f6', accentGlow: 'rgba(59,130,246,0.3)',
+    secondary: '#6366f1',
+    ceilLight0: '#93c5fd', ceilLight1: '#bfdbfe',
+    borderDefault: '#c8d4e4', borderAccent: 'rgba(59,130,246,0.25)',
+    textPrimary: '#1e293b', textMuted: '#64748b',
+    glass: 'rgba(241,245,249,0.88)', glassBorder: 'rgba(100,116,139,0.3)',
+    junctionNeon: '#60a5fa',
+    windowSky: ['#bfdbfe', '#e0f2fe'],
+    serverGlow: '#22c55e',
   },
   sunset: {
-    wallTop: '#2d3748', wallBottom: '#1a202c',
-    floorTop: '#1e293b', floorBottom: '#0f172a',
-    windowSky: ['#ff6b6b', '#ffa502', '#2d3436'],
-    textColor: '#f7fafc', accentColor: '#f6ad55',
+    isDark: true,
+    bg0: '#0f0a1a', bg1: '#080612',
+    wall0: '#110d1e', wall1: '#0b0913',
+    floor0: '#0d0a17', floor1: '#070510',
+    tileStroke: '#18122a',
+    accent: '#f59e0b', accentGlow: 'rgba(245,158,11,0.35)',
+    secondary: '#ef4444',
+    ceilLight0: '#f59e0b', ceilLight1: '#fcd34d',
+    borderDefault: '#2d1f3d', borderAccent: 'rgba(245,158,11,0.25)',
+    textPrimary: '#f7fafc', textMuted: '#94a3b8',
+    glass: 'rgba(8,4,16,0.88)', glassBorder: 'rgba(245,158,11,0.25)',
+    junctionNeon: '#f59e0b',
+    windowSky: ['#020208', '#160510', '#4a0c02'],
+    serverGlow: '#6366f1',
   },
   night: {
-    wallTop: '#0f172a', wallBottom: '#020617',
-    floorTop: '#1e293b', floorBottom: '#0f172a',
-    windowSky: ['#0a1628', '#1a2a4a', '#0d1a30'],
-    textColor: '#e2e8f0', accentColor: '#3b82f6',
+    isDark: true,
+    bg0: '#060912', bg1: '#030608',
+    wall0: '#080d17', wall1: '#04080f',
+    floor0: '#060912', floor1: '#040710',
+    tileStroke: '#0d1628',
+    accent: '#6366f1', accentGlow: 'rgba(99,102,241,0.35)',
+    secondary: '#8b5cf6',
+    ceilLight0: '#6366f1', ceilLight1: '#a78bfa',
+    borderDefault: '#1a2535', borderAccent: 'rgba(99,102,241,0.22)',
+    textPrimary: '#e2e8f0', textMuted: '#475569',
+    glass: 'rgba(6,9,18,0.88)', glassBorder: 'rgba(99,102,241,0.22)',
+    junctionNeon: '#6366f1',
+    windowSky: ['#020408', '#04080f', '#060b1a'],
+    serverGlow: '#10b981',
   },
 };
 
 // ============================================================================
-// HOOK PARA POSICIONAMIENTO
+// HOOK PARA POSICIONAMIENTO (unchanged)
 // ============================================================================
 
 interface OfficePositions {
-  [officeIndex: number]: {
-    [agentId: string]: { x: number; y: number };
-  };
+  [officeIndex: number]: { [agentId: string]: { x: number; y: number } };
 }
 
 function useAgentPositioning(officeIndex: number) {
@@ -65,11 +94,7 @@ function useAgentPositioning(officeIndex: number) {
   useEffect(() => {
     const saved = localStorage.getItem('qubot_agent_positions');
     if (saved) {
-      try {
-        setCustomPositions(JSON.parse(saved));
-      } catch {
-        console.error('Failed to load agent positions');
-      }
+      try { setCustomPositions(JSON.parse(saved)); } catch { /* ignore */ }
     }
   }, []);
 
@@ -80,38 +105,29 @@ function useAgentPositioning(officeIndex: number) {
 
   const drag = useCallback((mouseX: number, mouseY: number) => {
     if (!draggedAgent || !isEditMode) return;
-
     setCustomPositions(prev => ({
       ...prev,
       [officeIndex]: {
         ...prev[officeIndex],
-        [draggedAgent]: { x: mouseX - dragOffset.x, y: mouseY - dragOffset.y }
-      }
+        [draggedAgent]: { x: mouseX - dragOffset.x, y: mouseY - dragOffset.y },
+      },
     }));
   }, [draggedAgent, dragOffset, isEditMode, officeIndex]);
 
   const endDrag = useCallback(() => {
     if (!draggedAgent) return;
-
     setCustomPositions(prev => {
       const currentPos = prev[officeIndex]?.[draggedAgent];
       if (!currentPos) return prev;
-
       const snappedX = Math.round(currentPos.x / OFFICE_CONFIG.GRID_SIZE) * OFFICE_CONFIG.GRID_SIZE;
       const snappedY = Math.round(currentPos.y / OFFICE_CONFIG.GRID_SIZE) * OFFICE_CONFIG.GRID_SIZE;
-
       const updated = {
         ...prev,
-        [officeIndex]: {
-          ...prev[officeIndex],
-          [draggedAgent]: { x: snappedX, y: snappedY }
-        }
+        [officeIndex]: { ...prev[officeIndex], [draggedAgent]: { x: snappedX, y: snappedY } },
       };
-      
       localStorage.setItem('qubot_agent_positions', JSON.stringify(updated));
       return updated;
     });
-
     setDraggedAgent(null);
   }, [draggedAgent, officeIndex]);
 
@@ -130,451 +146,518 @@ function useAgentPositioning(officeIndex: number) {
   return {
     isEditMode, setIsEditMode, draggedAgent,
     startDrag, drag, endDrag, resetPositions, getPosition,
-    hasCustomPositions: Object.keys(customPositions[officeIndex] || {}).length > 0
+    hasCustomPositions: Object.keys(customPositions[officeIndex] || {}).length > 0,
   };
 }
 
 // ============================================================================
-// FUNCIONES UTILITARIAS
+// FUNCIONES UTILITARIAS (unchanged)
 // ============================================================================
 
 function classifyAgent(agent: StoreAgent): string {
   const domain = (agent.domain || agent.role || '').toLowerCase();
   const name = (agent.name || '').toLowerCase();
-  
   if (agent.name?.toLowerCase().includes('lead')) return 'lead';
   if (name.includes('front') || name.includes('back') || name.includes('database')) return 'tech';
   if (name.includes('devops') || name.includes('security')) return 'ops';
   if (name.includes('ml') || name.includes('data')) return 'data';
   if (name.includes('content')) return 'creative';
-  
   if (domain.includes('tech') || domain.includes('dev')) return 'tech';
   if (domain.includes('ops') || domain.includes('security')) return 'ops';
   if (domain.includes('data') || domain.includes('ml')) return 'data';
-  
   return 'tech';
 }
 
 function distributeAgentsIntoOffices(agents: StoreAgent[]): StoreAgent[][] {
   const offices: StoreAgent[][] = [];
-  
   const lead = agents.find(a => a.name?.toLowerCase().includes('lead'));
   const others = agents.filter(a => a.id !== lead?.id);
-  
   const byDomain: Record<string, StoreAgent[]> = {};
   others.forEach(agent => {
     const domain = classifyAgent(agent);
     if (!byDomain[domain]) byDomain[domain] = [];
     byDomain[domain].push(agent);
   });
-  
   const office1: StoreAgent[] = [];
   if (lead) office1.push(lead);
-  
   const domains = Object.keys(byDomain);
   for (const domain of domains) {
-    const domainAgents1 = byDomain[domain];
-    if (domainAgents1) {
-      while (domainAgents1.length > 0 && office1.length < OFFICE_CONFIG.MAX_AGENTS_PER_OFFICE) {
-        office1.push(domainAgents1.shift()!);
-      }
-    }
+    const da = byDomain[domain];
+    if (da) while (da.length > 0 && office1.length < OFFICE_CONFIG.MAX_AGENTS_PER_OFFICE) office1.push(da.shift()!);
   }
   if (office1.length > 0) offices.push(office1);
-
   for (const domain of domains) {
-    const domainAgents2 = byDomain[domain];
-    if (!domainAgents2) continue;
-    while (domainAgents2.length > 0) {
+    const da = byDomain[domain];
+    if (!da) continue;
+    while (da.length > 0) {
       const office: StoreAgent[] = [];
-      while (domainAgents2.length > 0 && office.length < OFFICE_CONFIG.MAX_AGENTS_PER_OFFICE) {
-        office.push(domainAgents2.shift()!);
-      }
+      while (da.length > 0 && office.length < OFFICE_CONFIG.MAX_AGENTS_PER_OFFICE) office.push(da.shift()!);
       offices.push(office);
     }
   }
-  
   return offices.slice(0, OFFICE_CONFIG.MAX_OFFICES);
 }
 
 function generatePositionsForOffice(agents: StoreAgent[], width: number, wallH: number) {
   const positions: Array<{ x: number; y: number; agent: StoreAgent }> = [];
   const centerX = width / 2;
-  const startY = wallH + 80;
-  
+  const startY = wallH + 90;
   const lead = agents.find(a => a.name?.toLowerCase().includes('lead'));
   const others = agents.filter(a => a.id !== lead?.id);
-  
-  if (lead) {
-    positions.push({
-      x: centerX,
-      y: startY,
-      agent: lead,
-    });
-  }
-  
+  if (lead) positions.push({ x: centerX, y: startY, agent: lead });
   const spacingX = OFFICE_CONFIG.SPACING_X;
   const spacingY = OFFICE_CONFIG.SPACING_Y;
   const secondRowY = startY + spacingY + 40;
-  
   if (others.length <= 3) {
     const startX = centerX - ((others.length - 1) * spacingX) / 2;
-    others.forEach((agent, i) => {
-      positions.push({ x: startX + i * spacingX, y: secondRowY, agent });
-    });
+    others.forEach((agent, i) => positions.push({ x: startX + i * spacingX, y: secondRowY, agent }));
   } else if (others.length <= 6) {
     const firstRow = Math.min(3, others.length);
     const startX1 = centerX - ((firstRow - 1) * spacingX) / 2;
-    for (let i = 0; i < firstRow; i++) {
-      positions.push({ x: startX1 + i * spacingX, y: secondRowY, agent: others[i]! });
-    }
-
+    for (let i = 0; i < firstRow; i++) positions.push({ x: startX1 + i * spacingX, y: secondRowY, agent: others[i]! });
     const thirdRowY = secondRowY + spacingY;
     const secondRowAgents = others.slice(firstRow);
-    const secondRowCount = secondRowAgents.length;
-    const startX2 = centerX - ((secondRowCount - 1) * spacingX) / 2;
-    secondRowAgents.forEach((agent, i) => {
-      positions.push({ x: startX2 + i * spacingX, y: thirdRowY, agent });
-    });
+    const startX2 = centerX - ((secondRowAgents.length - 1) * spacingX) / 2;
+    secondRowAgents.forEach((agent, i) => positions.push({ x: startX2 + i * spacingX, y: thirdRowY, agent }));
   } else {
     const firstRow = 3;
     const startX1 = centerX - ((firstRow - 1) * spacingX) / 2;
-    for (let i = 0; i < firstRow; i++) {
-      positions.push({ x: startX1 + i * spacingX, y: secondRowY, agent: others[i]! });
-    }
-    
+    for (let i = 0; i < firstRow; i++) positions.push({ x: startX1 + i * spacingX, y: secondRowY, agent: others[i]! });
     const thirdRowY = secondRowY + spacingY;
     const secondRowAgents = others.slice(firstRow);
     const startX2 = centerX - ((4 - 1) * spacingX) / 2;
-    secondRowAgents.forEach((agent, i) => {
-      positions.push({ x: startX2 + i * spacingX, y: thirdRowY, agent });
-    });
+    secondRowAgents.forEach((agent, i) => positions.push({ x: startX2 + i * spacingX, y: thirdRowY, agent }));
   }
-  
   return positions;
 }
 
 // ============================================================================
-// COMPONENTES VISUALES
+// PREMIUM VISUAL COMPONENTS
 // ============================================================================
 
-function Floor({ width, height, theme, showGrid }: { width: number; height: number; theme: TimeOfDay; showGrid?: boolean }) {
-  const colors = THEMES[theme];
+type ThemeTokens = typeof PREMIUM_THEMES['night'];
+
+function PremiumFloor({ width, height, t, showGrid }: { width: number; height: number; t: ThemeTokens; showGrid?: boolean }) {
   return (
     <g>
       <defs>
-        <linearGradient id="floorGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={colors.floorTop} />
-          <stop offset="100%" stopColor={colors.floorBottom} />
+        <linearGradient id="floorBase" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={t.floor0} />
+          <stop offset="100%" stopColor={t.floor1} />
         </linearGradient>
-        <pattern id="floorGrid" width="50" height="30" patternUnits="userSpaceOnUse">
-          <rect width="50" height="30" fill="url(#floorGrad)" />
-          <path d="M0 0 L50 0 M0 0 L0 30" stroke={theme === 'day' ? '#cbd5e1' : '#1e293b'} strokeWidth="0.5" opacity="0.3" />
+        <pattern id="tilePat" width="70" height="70" patternUnits="userSpaceOnUse">
+          <rect width="70" height="70" fill="none" />
+          <rect width="70" height="70" fill="none" stroke={t.tileStroke} strokeWidth="0.8" />
+          <rect x="3" y="3" width="64" height="64" fill="none" stroke={t.tileStroke} strokeWidth="0.25" opacity="0.5" />
         </pattern>
+        <radialGradient id="floorAmb1" cx="30%" cy="55%" r="40%">
+          <stop offset="0%" stopColor={t.accent} stopOpacity={t.isDark ? 0.05 : 0.04} />
+          <stop offset="100%" stopColor="transparent" stopOpacity="0" />
+        </radialGradient>
+        <radialGradient id="floorAmb2" cx="70%" cy="60%" r="35%">
+          <stop offset="0%" stopColor={t.secondary} stopOpacity={t.isDark ? 0.04 : 0.03} />
+          <stop offset="100%" stopColor="transparent" stopOpacity="0" />
+        </radialGradient>
         <pattern id="editGrid" width={OFFICE_CONFIG.GRID_SIZE} height={OFFICE_CONFIG.GRID_SIZE} patternUnits="userSpaceOnUse">
           <rect width={OFFICE_CONFIG.GRID_SIZE} height={OFFICE_CONFIG.GRID_SIZE} fill="transparent" />
-          <circle cx={2} cy={2} r={1} fill={theme === 'day' ? '#94a3b8' : '#475569'} opacity="0.4" />
+          <circle cx={2} cy={2} r={1.2} fill={t.accent} opacity="0.5" />
         </pattern>
       </defs>
-      <rect width={width} height={height} fill="url(#floorGrid)" />
-      {showGrid && <rect width={width} height={height} fill="url(#editGrid)" opacity="0.3" />}
+      <rect width={width} height={height} fill="url(#floorBase)" />
+      <rect width={width} height={height} fill="url(#tilePat)" />
+      <rect width={width} height={height} fill="url(#floorAmb1)" />
+      <rect width={width} height={height} fill="url(#floorAmb2)" />
+      {showGrid && <rect width={width} height={height} fill="url(#editGrid)" opacity="0.5" />}
     </g>
   );
 }
 
-function BackWall({ width, height, theme }: { width: number; height: number; theme: TimeOfDay }) {
-  const colors = THEMES[theme];
+function PremiumBackWall({ width, height, t }: { width: number; height: number; t: ThemeTokens }) {
   const wallH = height * 0.18;
-  
   return (
     <g>
       <defs>
         <linearGradient id="wallGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={colors.wallTop} />
-          <stop offset="100%" stopColor={colors.wallBottom} />
+          <stop offset="0%" stopColor={t.wall0} />
+          <stop offset="100%" stopColor={t.wall1} />
+        </linearGradient>
+        <linearGradient id="ceilLightGradL" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={t.ceilLight0} stopOpacity="0.5" />
+          <stop offset="100%" stopColor={t.ceilLight0} stopOpacity="0" />
+        </linearGradient>
+        <linearGradient id="ceilLightGradR" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={t.ceilLight1} stopOpacity="0.5" />
+          <stop offset="100%" stopColor={t.ceilLight1} stopOpacity="0" />
         </linearGradient>
       </defs>
+
+      {/* Main wall */}
       <rect x={0} y={0} width={width} height={wallH} fill="url(#wallGrad)" />
-      <rect x={0} y={wallH - 4} width={width} height={4} fill={theme === 'day' ? '#94a3b8' : '#1e293b'} />
+
+      {/* Ceiling light strips */}
+      <rect x={width * 0.14} y={0} width={width * 0.24} height={4} rx={2}
+        fill={t.ceilLight0} opacity={t.isDark ? 0.9 : 0.6} />
+      <rect x={width * 0.14} y={4} width={width * 0.24} height={40}
+        fill="url(#ceilLightGradL)" opacity="0.12" />
+
+      <rect x={width * 0.62} y={0} width={width * 0.24} height={4} rx={2}
+        fill={t.ceilLight1} opacity={t.isDark ? 0.9 : 0.6} />
+      <rect x={width * 0.62} y={4} width={width * 0.24} height={40}
+        fill="url(#ceilLightGradR)" opacity="0.12" />
+
+      {/* Wall/floor junction panel */}
+      <rect x={0} y={wallH - 5} width={width} height={5}
+        fill={t.isDark ? '#0c1422' : '#b8c4d8'} />
+      {/* Neon trim line */}
+      <rect x={0} y={wallH - 5} width={width} height={1.5}
+        fill={t.junctionNeon} opacity={t.isDark ? 0.5 : 0.35} />
     </g>
   );
 }
 
-function WhiteboardLogo({ width, wallH, theme, officeNumber }: { width: number; wallH: number; theme: TimeOfDay; officeNumber: number }) {
-  const colors = THEMES[theme];
-  const isDay = theme === 'day';
-  
+function HolographicDisplay({ width, wallH, t, officeNumber }: { width: number; wallH: number; t: ThemeTokens; officeNumber: number }) {
   return (
     <g transform={`translate(${width / 2}, ${wallH * 0.5})`}>
       <defs>
-        {/* Marco de madera */}
-        <linearGradient id="woodFrame" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor={isDay ? '#8B4513' : '#5c3a1e'} />
-          <stop offset="50%" stopColor={isDay ? '#A0522D' : '#6b4423'} />
-          <stop offset="100%" stopColor={isDay ? '#8B4513' : '#5c3a1e'} />
+        <linearGradient id="dispBg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={t.isDark ? '#0d1117' : '#f8fafc'} />
+          <stop offset="100%" stopColor={t.isDark ? '#06090e' : '#f1f5f9'} />
         </linearGradient>
-        {/* Pizarra blanca */}
-        <linearGradient id="whiteboard" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={isDay ? '#f8fafc' : '#e2e8f0'} />
-          <stop offset="100%" stopColor={isDay ? '#f1f5f9' : '#cbd5e1'} />
+        <linearGradient id="dispBorder" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor={t.accent} />
+          <stop offset="50%" stopColor={t.secondary} />
+          <stop offset="100%" stopColor={t.accent} />
         </linearGradient>
-        {/* Sombra */}
-        <filter id="boardShadow" x="-20%" y="-20%" width="140%" height="140%">
-          <feDropShadow dx="0" dy="3" stdDeviation="4" floodOpacity="0.3"/>
+        <filter id="dispGlow" x="-40%" y="-40%" width="180%" height="180%">
+          <feGaussianBlur stdDeviation="5" result="blur" />
+          <feComposite in="SourceGraphic" in2="blur" operator="over" />
         </filter>
       </defs>
-      
-      {/* Marco de madera */}
-      <rect x={-110} y={-35} width={220} height={70} rx={4} fill="url(#woodFrame)" filter="url(#boardShadow)" />
-      
-      {/* Pizarra blanca interior */}
-      <rect x={-105} y={-30} width={210} height={60} rx={2} fill="url(#whiteboard)" stroke="#94a3b8" strokeWidth="0.5" />
-      
-      {/* Borde metálico */}
-      <rect x={-107} y={-32} width={214} height={64} rx={3} fill="none" stroke={isDay ? '#64748b' : '#475569'} strokeWidth="1" opacity="0.5" />
-      
-      {/* Texto QUBOT */}
-      <text x={0} y={-2} textAnchor="middle" fontSize={22} fontWeight="bold" 
-        fill={isDay ? '#1e293b' : '#0f172a'}
-        style={{ fontFamily: 'system-ui, sans-serif', letterSpacing: '2px' }}>QUBOT</text>
-      
-      {/* Subtítulo AI OFFICE */}
-      <text x={0} y={16} textAnchor="middle" fontSize={10} fill={isDay ? '#64748b' : '#475569'} letterSpacing={3}
-        style={{ fontFamily: 'system-ui, sans-serif' }}>AI OFFICE {officeNumber > 1 ? `#${officeNumber}` : ''}</text>
-      
-      {/* Estante para marcadores */}
-      <rect x={-105} y={28} width={210} height={8} rx={1} fill={isDay ? '#e2e8f0' : '#cbd5e1'} />
-      
-      {/* Marcadores de colores */}
-      <rect x={-90} y={26} width={4} height={6} rx={1} fill="#ef4444" />
-      <rect x={-82} y={26} width={4} height={6} rx={1} fill="#3b82f6" />
-      <rect x={-74} y={26} width={4} height={6} rx={1} fill="#22c55e" />
-      <rect x={70} y={26} width={4} height={6} rx={1} fill="#f59e0b" />
-      
-      {/* Borrador */}
-      <rect x={80} y={25} width={16} height={5} rx={1} fill="#94a3b8" />
+
+      {/* Outer ambient glow */}
+      {t.isDark && (
+        <rect x={-128} y={-48} width={256} height={96} rx={10}
+          fill={t.accent} opacity="0.04" filter="url(#dispGlow)" />
+      )}
+
+      {/* Main panel */}
+      <rect x={-120} y={-42} width={240} height={84} rx={7}
+        fill="url(#dispBg)" stroke="url(#dispBorder)" strokeWidth="1.5" />
+
+      {/* Inner panel inset */}
+      <rect x={-116} y={-38} width={232} height={76} rx={5}
+        fill="none" stroke={t.isDark ? t.accent + '18' : t.accent + '22'} strokeWidth="0.8" />
+
+      {/* Corner brackets */}
+      <path d={`M-110,-30 L-110,-38 L-102,-38`} fill="none" stroke={t.accent} strokeWidth="1.5" opacity="0.85" />
+      <path d={`M110,-30 L110,-38 L102,-38`} fill="none" stroke={t.accent} strokeWidth="1.5" opacity="0.85" />
+      <path d={`M-110,30 L-110,38 L-102,38`} fill="none" stroke={t.secondary} strokeWidth="1.5" opacity="0.85" />
+      <path d={`M110,30 L110,38 L102,38`} fill="none" stroke={t.secondary} strokeWidth="1.5" opacity="0.85" />
+
+      {/* Scan line animation */}
+      {t.isDark && (
+        <rect x={-116} y={-38} width={232} height={2} rx={1}
+          fill={t.accent} opacity="0.25">
+          <animate attributeName="y" values="-38;36;-38" dur="5s" repeatCount="indefinite" />
+          <animate attributeName="opacity" values="0.25;0;0.25" dur="5s" repeatCount="indefinite" />
+        </rect>
+      )}
+
+      {/* QUBOT logotype */}
+      <text x={0} y={2} textAnchor="middle" fontSize={26} fontWeight={800}
+        fill={t.isDark ? '#e2e8f0' : '#1e293b'}
+        style={{ fontFamily: 'system-ui, -apple-system, sans-serif', letterSpacing: '5px' }}>
+        QUBOT
+      </text>
+
+      {/* Accent underline */}
+      <rect x={-35} y={7} width={70} height={1.5} rx={1}
+        fill={t.accent} opacity="0.75" />
+
+      {/* Subtitle */}
+      <text x={0} y={24} textAnchor="middle" fontSize={8.5}
+        fill={t.accent}
+        style={{ fontFamily: 'system-ui, sans-serif', letterSpacing: '7px' }}>
+        AI OFFICE{officeNumber > 1 ? ` #${officeNumber}` : ''}
+      </text>
+
+      {/* Status indicator dot */}
+      <circle cx={-92} cy={-24} r={3.5} fill="#10b981" opacity="0.9">
+        <animate attributeName="opacity" values="0.9;0.3;0.9" dur="2s" repeatCount="indefinite" />
+      </circle>
+      <text x={-85} y={-20} fontSize={7} fill={t.textMuted}
+        style={{ fontFamily: 'monospace' }}>SYS.ONLINE</text>
     </g>
   );
 }
 
-function Windows({ width, wallH, theme }: { width: number; wallH: number; theme: TimeOfDay }) {
-  const colors = THEMES[theme];
-  const windowW = 80;
-  const windowH = wallH * 0.55;
-  
+function PremiumWindows({ width, wallH, t }: { width: number; wallH: number; t: ThemeTokens }) {
+  const windowW = 92;
+  const windowH = wallH * 0.62;
+
+  // Deterministic city buildings
+  const buildings = [
+    { x: 0,  w: 16, h: 58 },
+    { x: 19, w: 11, h: 42 },
+    { x: 33, w: 22, h: 68 },
+    { x: 58, w: 9,  h: 32 },
+    { x: 70, w: 15, h: 52 },
+  ];
+
+  const renderWindow = (offsetX: number) => {
+    const gradId = `winSky${Math.round(offsetX)}`;
+    const clipId = `winClip${Math.round(offsetX)}`;
+    return (
+      <g key={offsetX} transform={`translate(${offsetX}, ${wallH * 0.17})`}>
+        <defs>
+          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+            {t.windowSky.map((color, i) => (
+              <stop key={i}
+                offset={`${(i / (t.windowSky.length - 1)) * 100}%`}
+                stopColor={color} />
+            ))}
+          </linearGradient>
+          <clipPath id={clipId}>
+            <rect width={windowW} height={windowH} rx={4} />
+          </clipPath>
+        </defs>
+
+        {/* Sky background */}
+        <rect width={windowW} height={windowH} rx={4} fill={`url(#${gradId})`} />
+
+        <g clipPath={`url(#${clipId})`}>
+          {/* Stars (dark only) */}
+          {t.isDark && [
+            { x: 8, y: 6 }, { x: 22, y: 4 }, { x: 45, y: 10 },
+            { x: 68, y: 5 }, { x: 82, y: 14 }, { x: 36, y: 3 }, { x: 58, y: 8 },
+          ].map((s, i) => (
+            <circle key={i} cx={s.x} cy={s.y} r={0.9} fill="#ffffff" opacity="0.55">
+              <animate attributeName="opacity" values="0.55;0.15;0.55"
+                dur={`${1.8 + i * 0.4}s`} repeatCount="indefinite" />
+            </circle>
+          ))}
+
+          {/* City silhouette */}
+          {buildings.map((b, i) => (
+            <g key={i}>
+              <rect x={b.x} y={windowH - b.h} width={b.w} height={b.h}
+                fill={t.isDark ? '#0a1628' : '#94a3b8'} />
+              {/* Building windows at night */}
+              {t.isDark && Array.from({ length: Math.floor(b.h / 9) }).map((_, row) =>
+                Array.from({ length: Math.floor(b.w / 5) }).map((_, col) => {
+                  const lit = (i * 11 + row * 5 + col * 7) % 3 !== 0;
+                  return lit ? (
+                    <rect key={`${row}-${col}`}
+                      x={b.x + 2 + col * 5} y={windowH - b.h + 5 + row * 9}
+                      width={2.5} height={3.5}
+                      fill={[(i * 3 + row) % 2 === 0 ? '#fde68a' : '#bfdbfe'][0]}
+                      opacity="0.65" />
+                  ) : null;
+                })
+              )}
+            </g>
+          ))}
+
+          {/* Moon (night) */}
+          {t.isDark && (
+            <circle cx={windowW * 0.78} cy={windowH * 0.22} r={7} fill="#fef3c7" opacity="0.88">
+              <animate attributeName="r" values="7;7.5;7" dur="4s" repeatCount="indefinite" />
+            </circle>
+          )}
+
+          {/* Sun (day) */}
+          {!t.isDark && (
+            <circle cx={windowW * 0.72} cy={windowH * 0.28} r={10} fill="#fde68a" opacity="0.9">
+              <animate attributeName="r" values="10;11;10" dur="3s" repeatCount="indefinite" />
+            </circle>
+          )}
+        </g>
+
+        {/* Window frame */}
+        <rect width={windowW} height={windowH} rx={4} fill="none"
+          stroke={t.isDark ? '#1e3a6e' : '#94a3b8'} strokeWidth="2" />
+        {/* Dividers */}
+        <line x1={windowW / 2} y1={0} x2={windowW / 2} y2={windowH}
+          stroke={t.isDark ? '#1e3a6e' : '#94a3b8'} strokeWidth="1.5" />
+        <line x1={0} y1={windowH / 2} x2={windowW} y2={windowH / 2}
+          stroke={t.isDark ? '#1e3a6e' : '#94a3b8'} strokeWidth="1.5" />
+        {/* Glass reflection sheen */}
+        <rect x={4} y={4} width={windowW * 0.3} height={windowH - 8} rx={2}
+          fill="white" opacity="0.025" />
+      </g>
+    );
+  };
+
   return (
     <g>
-      <defs>
-        <linearGradient id="windowSky" x1="0" y1="0" x2="0" y2="1">
-          {colors.windowSky.map((color, i) => (
-            <stop key={i} offset={`${(i / (colors.windowSky.length - 1)) * 100}%`} stopColor={color} />
-          ))}
-        </linearGradient>
-      </defs>
-      
-      {/* Ventana izquierda - posición ajustada para no tapar */}
-      <g transform={`translate(35, ${wallH * 0.2})`}>
-        <rect width={windowW} height={windowH} rx={2} fill="url(#windowSky)" 
-          stroke={theme === 'day' ? '#64748b' : '#1e3a6e'} strokeWidth="2" />
-        <line x1={windowW/2} y1={0} x2={windowW/2} y2={windowH} 
-          stroke={theme === 'day' ? '#64748b' : '#1e3a6e'} strokeWidth="2" />
-        <line x1={0} y1={windowH/2} x2={windowW} y2={windowH/2} 
-          stroke={theme === 'day' ? '#64748b' : '#1e3a6e'} strokeWidth="2" />
-      </g>
-      
-      {/* Ventana derecha - posición ajustada */}
-      <g transform={`translate(${width - 115}, ${wallH * 0.2})`}>
-        <rect width={windowW} height={windowH} rx={2} fill="url(#windowSky)" 
-          stroke={theme === 'day' ? '#64748b' : '#1e3a6e'} strokeWidth="2" />
-        <line x1={windowW/2} y1={0} x2={windowW/2} y2={windowH} 
-          stroke={theme === 'day' ? '#64748b' : '#1e3a6e'} strokeWidth="2" />
-        <line x1={0} y1={windowH/2} x2={windowW} y2={windowH/2} 
-          stroke={theme === 'day' ? '#64748b' : '#1e3a6e'} strokeWidth="2" />
-      </g>
+      {renderWindow(28)}
+      {renderWindow(width - 120)}
     </g>
   );
 }
 
-// ============================================================================
-// DECORACIONES
-// ============================================================================
-
-function WallClock({ x, y, theme }: { x: number; y: number; theme: TimeOfDay }) {
+function PremiumClock({ x, y, t }: { x: number; y: number; t: ThemeTokens }) {
   const [time, setTime] = useState(new Date());
-  
   useEffect(() => {
-    const interval = setInterval(() => setTime(new Date()), 1000);
-    return () => clearInterval(interval);
+    const id = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(id);
   }, []);
-  
-  // Hora actual correcta
+
   const hours = time.getHours();
   const minutes = time.getMinutes();
   const seconds = time.getSeconds();
-  
-  // Ángulos correctos para las manecillas
-  const hourAngle = ((hours % 12) * 30) + (minutes * 0.5) - 90;
+  const hourAngle   = ((hours % 12) * 30) + (minutes * 0.5) - 90;
   const minuteAngle = (minutes * 6) - 90;
   const secondAngle = (seconds * 6) - 90;
-  
+
   return (
     <g transform={`translate(${x}, ${y})`}>
-      {/* Marco del reloj */}
-      <circle cx={0} cy={0} r={26} fill={theme === 'day' ? '#f8fafc' : '#1e293b'} 
-        stroke={theme === 'day' ? '#cbd5e1' : '#334155'} strokeWidth="2" />
-      <circle cx={0} cy={0} r={22} fill="none" 
-        stroke={theme === 'day' ? '#e2e8f0' : '#1e293b'} strokeWidth="1" />
-      
-      {/* Marcadores de hora */}
-      {[...Array(12)].map((_, i) => (
-        <line
-          key={i}
-          x1={0}
-          y1={i % 3 === 0 ? -18 : -20}
-          x2={0}
-          y2={-22}
-          stroke={theme === 'day' ? '#64748b' : '#94a3b8'}
-          strokeWidth={i % 3 === 0 ? 2 : 1}
-          transform={`rotate(${i * 30})`}
-        />
-      ))}
-      
-      {/* Manecilla de horas - corregida */}
-      <line
-        x1={0} y1={0}
-        x2={12} y2={0}
-        stroke={theme === 'day' ? '#1e293b' : '#e2e8f0'}
-        strokeWidth="3"
-        strokeLinecap="round"
-        transform={`rotate(${hourAngle})`}
-      />
-      
-      {/* Manecilla de minutos - corregida */}
-      <line
-        x1={0} y1={0}
-        x2={18} y2={0}
-        stroke={theme === 'day' ? '#475569' : '#cbd5e1'}
-        strokeWidth="2"
-        strokeLinecap="round"
-        transform={`rotate(${minuteAngle})`}
-      />
-      
-      {/* Manecilla de segundos - corregida */}
-      <line
-        x1={0} y1={0}
-        x2={20} y2={0}
-        stroke="#ef4444"
-        strokeWidth="1"
-        strokeLinecap="round"
-        transform={`rotate(${secondAngle})`}
-      />
-      
-      {/* Centro */}
-      <circle cx={0} cy={0} r={3} fill={theme === 'day' ? '#1e293b' : '#e2e8f0'} />
-      <circle cx={0} cy={0} r={1.5} fill="#ef4444" />
+      <defs>
+        <linearGradient id="clockFace" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={t.isDark ? '#0d1117' : '#f8fafc'} />
+          <stop offset="100%" stopColor={t.isDark ? '#060912' : '#f1f5f9'} />
+        </linearGradient>
+      </defs>
+      {/* Outer accent ring */}
+      <circle cx={0} cy={0} r={25} fill="none"
+        stroke={t.accent} strokeWidth="1" opacity="0.35" />
+      {/* Face */}
+      <circle cx={0} cy={0} r={22} fill="url(#clockFace)"
+        stroke={t.borderDefault} strokeWidth="1.5" />
+      {/* Hour markers */}
+      {[...Array(12)].map((_, i) => {
+        const isMain = i % 3 === 0;
+        return (
+          <line key={i} x1={0} y1={isMain ? -14 : -17} x2={0} y2={-20}
+            stroke={isMain ? t.accent : (t.isDark ? '#1e2d40' : '#94a3b8')}
+            strokeWidth={isMain ? 2 : 1}
+            transform={`rotate(${i * 30})`} />
+        );
+      })}
+      {/* Hour hand */}
+      <line x1={0} y1={2.5} x2={0} y2={-10}
+        stroke={t.isDark ? '#e2e8f0' : '#1e293b'}
+        strokeWidth="2.5" strokeLinecap="round"
+        transform={`rotate(${hourAngle})`} />
+      {/* Minute hand */}
+      <line x1={0} y1={3} x2={0} y2={-15}
+        stroke={t.isDark ? '#94a3b8' : '#475569'}
+        strokeWidth="1.5" strokeLinecap="round"
+        transform={`rotate(${minuteAngle})`} />
+      {/* Second hand */}
+      <line x1={0} y1={3.5} x2={0} y2={-17}
+        stroke={t.accent}
+        strokeWidth="1" strokeLinecap="round"
+        transform={`rotate(${secondAngle})`} />
+      {/* Center hub */}
+      <circle cx={0} cy={0} r={3}
+        fill={t.isDark ? '#0d1117' : '#f1f5f9'}
+        stroke={t.accent} strokeWidth="1.5" />
+      <circle cx={0} cy={0} r={1.5} fill={t.accent} />
     </g>
   );
 }
 
-function Bookshelf({ x, y, theme }: { x: number; y: number; theme: TimeOfDay }) {
-  const bookColors = ['#8B4513', '#654321', '#4a3728', '#2d1f16', '#1a4a6e', '#3d5c5c'];
-  
+function PremiumBookshelf({ x, y, t }: { x: number; y: number; t: ThemeTokens }) {
+  const bookColors = ['#6366f1', '#8b5cf6', '#ec4899', '#10b981', '#f59e0b', '#3b82f6', '#ef4444', '#14b8a6'];
   return (
     <g transform={`translate(${x}, ${y})`}>
-      <defs>
-        <linearGradient id="woodGrad" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stopColor={theme === 'day' ? '#5c4033' : '#1a1510'} />
-          <stop offset="50%" stopColor={theme === 'day' ? '#8b6914' : '#2d2418'} />
-          <stop offset="100%" stopColor={theme === 'day' ? '#5c4033' : '#1a1510'} />
-        </linearGradient>
-      </defs>
-      
-      <rect x={0} y={0} width={50} height={80} rx={2} fill="url(#woodGrad)" 
-        stroke={theme === 'day' ? '#3d3020' : '#0d0a05'} strokeWidth="1" />
-      
-      <rect x={2} y={25} width={46} height={2} fill={theme === 'day' ? '#4a3728' : '#1a1208'} />
-      <rect x={2} y={52} width={46} height={2} fill={theme === 'day' ? '#4a3728' : '#1a1208'} />
-      
-      {/* Libros con animación */}
-      {[0, 1, 2].map((shelf) => (
+      <rect x={0} y={0} width={52} height={88} rx={3}
+        fill={t.isDark ? '#0c1018' : '#f1f5f9'}
+        stroke={t.borderDefault} strokeWidth="1.5" />
+      {/* Shelves */}
+      <rect x={3} y={27} width={46} height={2} fill={t.isDark ? '#1a2535' : '#94a3b8'} />
+      <rect x={3} y={56} width={46} height={2} fill={t.isDark ? '#1a2535' : '#94a3b8'} />
+      {/* Books - deterministic heights */}
+      {[0, 1, 2].map(shelf => (
         <g key={shelf}>
-          {Array.from({ length: 4 }).map((_, i) => {
-            const h = 18 + ((shelf * 4 + i) % 3) * 3;
-            const w = 8;
-            const bookX = 5 + i * 11;
-            const bookY = 24 + shelf * 27 - h;
+          {Array.from({ length: 5 }).map((_, i) => {
+            const heights = [18, 21, 16, 22, 19];
+            const h = heights[(shelf * 5 + i) % heights.length]!;
+            const color = bookColors[(shelf * 5 + i) % bookColors.length]!;
             return (
-              <rect 
-                key={i} 
-                x={bookX} 
-                y={bookY} 
-                width={w} 
-                height={h} 
-                fill={bookColors[(shelf * 4 + i) % bookColors.length]} 
-                stroke="#000" 
-                strokeWidth="0.3">
-                <animate 
-                  attributeName="y" 
-                  values={`${bookY};${bookY - 1};${bookY}`} 
-                  dur={`${3 + Math.random() * 2}s`} 
-                  repeatCount="indefinite" />
-              </rect>
+              <rect key={i}
+                x={5 + i * 9} y={26 + shelf * 29 - h}
+                width={7} height={h} rx={1}
+                fill={color} opacity={t.isDark ? 0.72 : 0.6} />
             );
           })}
         </g>
       ))}
-      
-      <ellipse cx={25} cy={82} rx={25} ry={3} fill="#000" opacity="0.2" />
+      <ellipse cx={26} cy={90} rx={24} ry={3} fill="#000" opacity="0.12" />
     </g>
   );
 }
 
-function Plant({ x, y, theme, type = 'tall' }: { x: number; y: number; theme: TimeOfDay; type?: 'tall' | 'bush' }) {
-  const potColor = theme === 'day' ? '#8b4513' : '#5c3a1e';
-  const leafColors = ['#22c55e', '#16a34a', '#15803d', '#4ade80'];
-  
+function PremiumPlant({ x, y, t, type = 'tall' }: { x: number; y: number; t: ThemeTokens; type?: 'tall' | 'bush' }) {
+  const pot = t.isDark ? '#0c1018' : '#e2e8f0';
+  const potStroke = t.isDark ? '#1a2535' : '#94a3b8';
+
   if (type === 'bush') {
     return (
       <g transform={`translate(${x}, ${y})`}>
-        <path d="M-20 40 L-15 60 L15 60 L20 40 Z" fill={potColor} />
-        <ellipse cx={0} cy={40} rx={20} ry={5} fill={theme === 'day' ? '#a0522d' : '#4a3728'} />
-        <circle cx={-10} cy={25} r={15} fill={leafColors[0]} />
-        <circle cx={10} cy={25} r={15} fill={leafColors[1]} />
-        <circle cx={0} cy={10} r={18} fill={leafColors[2]} />
-        <circle cx={-5} cy={20} r={12} fill={leafColors[3]} />
-        <circle cx={8} cy={18} r={10} fill={leafColors[0]} />
+        <rect x={-15} y={44} width={30} height={18} rx={4} fill={pot} stroke={potStroke} strokeWidth="1" />
+        <rect x={-13} y={40} width={26} height={6} rx={2} fill={t.isDark ? '#111f30' : '#cbd5e1'} />
+        <circle cx={-8} cy={28} r={14} fill="#065f46" opacity="0.92" />
+        <circle cx={8}  cy={28} r={14} fill="#047857" opacity="0.92" />
+        <circle cx={0}  cy={16} r={16} fill="#059669" opacity="0.88" />
+        <circle cx={-4} cy={24} r={10} fill="#10b981" opacity="0.6" />
+        <circle cx={7}  cy={21} r={9}  fill="#10b981" opacity="0.5" />
       </g>
     );
   }
-  
-  // Tall plant - más compacta
+
   return (
     <g transform={`translate(${x}, ${y})`}>
-      <path d="M-15 50 L-12 70 L12 70 L15 50 Z" fill={potColor} />
-      <ellipse cx={0} cy={50} rx={15} ry={3} fill={theme === 'day' ? '#a0522d' : '#4a3728'} />
-      <line x1={-3} y1={50} x2={-5} y2={15} stroke={leafColors[2]} strokeWidth="3" strokeLinecap="round" />
-      <line x1={3} y1={50} x2={5} y2={10} stroke={leafColors[2]} strokeWidth="3" strokeLinecap="round" />
-      <line x1={0} y1={50} x2={0} y2={0} stroke={leafColors[2]} strokeWidth="3" strokeLinecap="round" />
-      <ellipse cx={-8} cy={20} rx={6} ry={12} fill={leafColors[0]} transform="rotate(-20)" />
-      <ellipse cx={8} cy={15} rx={6} ry={12} fill={leafColors[1]} transform="rotate(20)" />
-      <ellipse cx={0} cy={-5} rx={5} ry={10} fill={leafColors[3]} />
+      <rect x={-12} y={52} width={24} height={18} rx={4} fill={pot} stroke={potStroke} strokeWidth="1" />
+      <rect x={-10} y={48} width={20} height={6} rx={2} fill={t.isDark ? '#111f30' : '#cbd5e1'} />
+      <path d="M0 52 C-2 38 -9 26 -14 10" fill="none" stroke="#065f46" strokeWidth="2.5" strokeLinecap="round" />
+      <path d="M0 52 C2 32 11 22 9 5"    fill="none" stroke="#047857" strokeWidth="2.5" strokeLinecap="round" />
+      <path d="M0 52 C0 36 0 20 0 2"     fill="none" stroke="#059669" strokeWidth="2.5" strokeLinecap="round" />
+      <ellipse cx={-11} cy={22} rx={8} ry={15} fill="#10b981" opacity="0.78" transform="rotate(-22,-11,22)" />
+      <ellipse cx={11}  cy={16} rx={8} ry={15} fill="#059669" opacity="0.78" transform="rotate(22,11,16)" />
+      <ellipse cx={0}   cy={4}  rx={6} ry={11} fill="#34d399" opacity="0.68" />
     </g>
   );
 }
 
-function ServerRack({ x, y }: { x: number; y: number }) {
+function PremiumServerRack({ x, y, t }: { x: number; y: number; t: ThemeTokens }) {
   return (
     <g transform={`translate(${x}, ${y})`}>
-      <rect width={35} height={100} rx={3} fill="#0d1117" stroke="#1e3a6e" strokeWidth="2" />
+      <defs>
+        <linearGradient id="rackBody" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor={t.isDark ? '#060912' : '#e2e8f0'} />
+          <stop offset="100%" stopColor={t.isDark ? '#0c1018' : '#f1f5f9'} />
+        </linearGradient>
+      </defs>
+      {/* Body */}
+      <rect width={38} height={112} rx={4} fill="url(#rackBody)"
+        stroke={t.borderDefault} strokeWidth="1.5" />
+      {/* Accent border glow */}
+      <rect width={38} height={112} rx={4} fill="none"
+        stroke={t.accent} strokeWidth="0.5" opacity="0.3" />
+      {/* Units */}
       {Array.from({ length: 5 }).map((_, i) => (
-        <g key={i} transform={`translate(4, ${10 + i * 18})`}>
-          <rect width={27} height={14} rx={2} fill="#111926" stroke="#1e2d45" />
-          <circle cx={20} cy={7} r={2} fill={i % 2 === 0 ? "#3fb950" : "#58a6ff"}>
-            <animate attributeName="opacity" values="1;0.3;1" dur={`${1.5 + i * 0.2}s`} repeatCount="indefinite" />
+        <g key={i} transform={`translate(3, ${8 + i * 21})`}>
+          <rect width={32} height={17} rx={2}
+            fill={t.isDark ? '#060912' : '#e8eef8'}
+            stroke={t.isDark ? '#1a2535' : '#cbd5e1'} strokeWidth="0.5" />
+          {/* LED */}
+          <circle cx={27} cy={8.5} r={2.5}
+            fill={i % 2 === 0 ? t.serverGlow : t.accent}>
+            <animate attributeName="opacity" values="1;0.25;1"
+              dur={`${1.3 + i * 0.25}s`} repeatCount="indefinite" />
           </circle>
+          {/* Drive slots */}
+          {[0, 1, 2].map(j => (
+            <rect key={j} x={4 + j * 6} y={5.5} width={4} height={6} rx={1}
+              fill={t.isDark ? '#0c1828' : '#cbd5e1'}
+              stroke={t.isDark ? '#1a2535' : '#94a3b8'} strokeWidth="0.3" />
+          ))}
         </g>
       ))}
-      <ellipse cx={17} cy={102} rx={17} ry={3} fill="#000" opacity="0.2" />
+      {/* Shadow */}
+      <ellipse cx={19} cy={114} rx={18} ry={4} fill="#000" opacity="0.18" />
     </g>
   );
 }
@@ -586,17 +669,19 @@ function ServerRack({ x, y }: { x: number; y: number }) {
 export default function OfficeSystem() {
   const agentRecord = useAgentsStore(state => state.agents);
   const agents = useMemo(() => Object.values(agentRecord), [agentRecord]);
-  
+
   const [currentOffice, setCurrentOffice] = useState(0);
   const [dimensions, setDimensions] = useState({ width: 800, height: 450 });
   const [currentTime, setCurrentTime] = useState('');
   const [theme, setTheme] = useState<TimeOfDay>('night');
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
-  
-  const { isEditMode, setIsEditMode, draggedAgent, startDrag, drag, endDrag, resetPositions, getPosition, hasCustomPositions } = useAgentPositioning(currentOffice);
 
-  // Hora actual
+  const {
+    isEditMode, setIsEditMode, draggedAgent,
+    startDrag, drag, endDrag, resetPositions, getPosition, hasCustomPositions,
+  } = useAgentPositioning(currentOffice);
+
   useEffect(() => {
     const tick = () => {
       const now = new Date();
@@ -607,14 +692,12 @@ export default function OfficeSystem() {
     return () => clearInterval(id);
   }, []);
 
-  // Tema día/noche
   useEffect(() => {
     setTheme(getTimeOfDay());
-    const interval = setInterval(() => setTheme(getTimeOfDay()), 60000);
-    return () => clearInterval(interval);
+    const id = setInterval(() => setTheme(getTimeOfDay()), 60000);
+    return () => clearInterval(id);
   }, []);
 
-  // Resize observer
   useEffect(() => {
     const update = () => {
       if (containerRef.current) {
@@ -630,17 +713,16 @@ export default function OfficeSystem() {
     return () => ro.disconnect();
   }, []);
 
-  // Mouse handlers
   const handleMouseDown = useCallback((e: React.MouseEvent, agentId: string, agentX: number, agentY: number) => {
     if (!isEditMode) return;
     e.preventDefault();
-    const rect = svgRef.current?.getBoundingClientRect();
+    const rect = containerRef.current?.getBoundingClientRect();
     if (rect) startDrag(agentId, e.clientX - rect.left, e.clientY - rect.top, agentX, agentY);
   }, [isEditMode, startDrag]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (!isEditMode || !draggedAgent) return;
-    const rect = svgRef.current?.getBoundingClientRect();
+    const rect = containerRef.current?.getBoundingClientRect();
     if (rect) drag(e.clientX - rect.left, e.clientY - rect.top);
   }, [isEditMode, draggedAgent, drag]);
 
@@ -648,233 +730,271 @@ export default function OfficeSystem() {
 
   const offices = useMemo(() => {
     const mockAgents = agents.length > 0 ? agents : [
-      { id: 1, name: 'Lead', role: 'Command Center', domain: 'management', status: 'busy' },
-      { id: 2, name: 'Frontend', role: 'UI Architect', domain: 'tech', status: 'busy' },
-      { id: 3, name: 'Backend', role: 'API Engineer', domain: 'tech', status: 'busy' },
-      { id: 4, name: 'Database', role: 'Data Architect', domain: 'tech', status: 'idle' },
-      { id: 5, name: 'DevOps', role: 'SRE Engineer', domain: 'ops', status: 'busy' },
-      { id: 6, name: 'Security', role: 'SecOps', domain: 'ops', status: 'idle' },
-      { id: 7, name: 'ML', role: 'AI Engineer', domain: 'data', status: 'idle' },
-      { id: 8, name: 'Content', role: 'Tech Writer', domain: 'creative', status: 'OFFLINE' },
+      { id: 1, name: 'Lead',     role: 'Command Center', domain: 'management', status: 'busy' },
+      { id: 2, name: 'Frontend', role: 'UI Architect',   domain: 'tech',       status: 'busy' },
+      { id: 3, name: 'Backend',  role: 'API Engineer',   domain: 'tech',       status: 'busy' },
+      { id: 4, name: 'Database', role: 'Data Architect', domain: 'tech',       status: 'idle' },
+      { id: 5, name: 'DevOps',   role: 'SRE Engineer',   domain: 'ops',        status: 'busy' },
+      { id: 6, name: 'Security', role: 'SecOps',         domain: 'ops',        status: 'idle' },
+      { id: 7, name: 'ML',       role: 'AI Engineer',    domain: 'data',       status: 'idle' },
+      { id: 8, name: 'Content',  role: 'Tech Writer',    domain: 'creative',   status: 'OFFLINE' },
     ];
     return distributeAgentsIntoOffices(mockAgents as StoreAgent[]);
   }, [agents]);
 
+  const t = PREMIUM_THEMES[theme];
   const currentAgents = offices[currentOffice] || [];
   const wallH = dimensions.height * 0.18;
-  const colors = THEMES[theme];
-  
+
   const agentPositions = useMemo(() => {
     const basePositions = generatePositionsForOffice(currentAgents, dimensions.width, wallH);
     return basePositions.map(({ x, y, agent }) => ({
       agent,
-      ...getPosition(String(agent.id), x, y)
+      ...getPosition(String(agent.id), x, y),
     }));
   }, [currentAgents, dimensions.width, wallH, getPosition]);
 
   const onlineCount = currentAgents.filter(a => a.status !== 'OFFLINE').length;
 
+  const themeIcon = { day: '☀️', sunset: '🌅', night: '🌙' }[theme];
+
   return (
-    <div 
-      ref={containerRef} 
-      className="w-full h-full relative overflow-hidden rounded-xl flex flex-col"
-      style={{ 
-        background: theme === 'day' 
-          ? 'linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%)'
-          : 'linear-gradient(180deg, #0f172a 0%, #020617 100%)',
+    <div
+      ref={containerRef}
+      className="w-full h-full relative overflow-hidden rounded-xl"
+      style={{
+        background: `linear-gradient(180deg, ${t.bg0} 0%, ${t.bg1} 100%)`,
       }}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
     >
-      {/* ========== HEADER INFO BAR - ENCIMA DE TODO ========== */}
+      {/* ========== SVG BACKGROUND CANVAS ========== */}
+      <svg
+        ref={svgRef}
+        width={dimensions.width}
+        height={dimensions.height}
+        style={{ position: 'absolute', top: 0, left: 0, display: 'block',
+          cursor: isEditMode ? (draggedAgent ? 'grabbing' : 'grab') : 'default' }}
+      >
+        <PremiumFloor width={dimensions.width} height={dimensions.height} t={t} showGrid={isEditMode} />
+        <PremiumBackWall width={dimensions.width} height={dimensions.height} t={t} />
+        <HolographicDisplay width={dimensions.width} wallH={wallH} t={t} officeNumber={currentOffice + 1} />
+        <PremiumWindows width={dimensions.width} wallH={wallH} t={t} />
+        <PremiumClock x={dimensions.width * 0.76} y={wallH * 0.5} t={t} />
+        <PremiumBookshelf x={22} y={wallH + 28} t={t} />
+        <PremiumPlant x={86} y={wallH + 52} t={t} type="tall" />
+        <PremiumServerRack x={dimensions.width - 60} y={wallH + 26} t={t} />
+        <PremiumPlant x={dimensions.width - 108} y={wallH + 72} t={t} type="bush" />
+
+        {/* Edit mode grid overlay */}
+        {isEditMode && (
+          <g opacity="0.18">
+            {Array.from({ length: Math.ceil(dimensions.width / OFFICE_CONFIG.GRID_SIZE) }).map((_, i) => (
+              <line key={`v${i}`}
+                x1={i * OFFICE_CONFIG.GRID_SIZE} y1={wallH}
+                x2={i * OFFICE_CONFIG.GRID_SIZE} y2={dimensions.height}
+                stroke={t.accent} strokeWidth="0.5" strokeDasharray="3,3" />
+            ))}
+            {Array.from({ length: Math.ceil((dimensions.height - wallH) / OFFICE_CONFIG.GRID_SIZE) }).map((_, i) => (
+              <line key={`h${i}`}
+                x1={0} y1={wallH + i * OFFICE_CONFIG.GRID_SIZE}
+                x2={dimensions.width} y2={wallH + i * OFFICE_CONFIG.GRID_SIZE}
+                stroke={t.accent} strokeWidth="0.5" strokeDasharray="3,3" />
+            ))}
+          </g>
+        )}
+      </svg>
+
+      {/* ========== AGENT HTML OVERLAY ========== */}
+      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+        {agentPositions.map(({ x, y, agent }) => (
+          <div
+            key={agent.id}
+            style={{
+              pointerEvents: 'auto',
+              opacity: draggedAgent === String(agent.id) ? 0.65 : 1,
+              cursor: isEditMode ? 'grab' : 'pointer',
+              transition: 'opacity 0.15s ease',
+            }}
+            onMouseDown={(e) => handleMouseDown(e, String(agent.id), x, y)}
+          >
+            <AgentDesk
+              agent={agent}
+              x={x}
+              y={y}
+              isLead={agent.name?.toLowerCase().includes('lead')}
+              onClick={() => {}}
+            />
+          </div>
+        ))}
+      </div>
+
+      {/* ========== HEADER BAR — glassmorphism ========== */}
       <div className="absolute top-3 left-3 right-3 z-30 flex justify-between items-center">
-        {/* LIVE indicator + hora digital */}
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs"
-          style={{ 
-            background: theme === 'day' ? 'rgba(255,255,255,0.95)' : 'rgba(9,14,26,0.95)', 
-            borderColor: theme === 'day' ? '#cbd5e1' : '#1e3a6e',
-          }}>
-          <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-          <span className="font-medium" style={{ color: theme === 'day' ? '#1e293b' : '#e2e8f0' }}>LIVE</span>
-          <span className="text-gray-400">|</span>
-          <span className="font-mono" style={{ color: theme === 'day' ? '#475569' : '#94a3b8' }}>{currentTime}</span>
+
+        {/* LIVE + clock */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          padding: '6px 14px', borderRadius: 10,
+          background: t.glass,
+          backdropFilter: 'blur(14px)',
+          WebkitBackdropFilter: 'blur(14px)',
+          border: `1px solid ${t.glassBorder}`,
+          boxShadow: '0 4px 20px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04)',
+        }}>
+          <span className="animate-pulse" style={{
+            width: 7, height: 7, borderRadius: '50%',
+            background: '#10b981',
+            boxShadow: '0 0 8px rgba(16,185,129,0.8)',
+            flexShrink: 0,
+            display: 'block',
+          }} />
+          <span style={{ fontSize: 11, fontWeight: 700, color: t.textPrimary, letterSpacing: '0.06em' }}>
+            LIVE
+          </span>
+          <span style={{ width: 1, height: 12, background: t.borderDefault, flexShrink: 0 }} />
+          <span style={{ fontSize: 11, fontFamily: 'monospace', color: t.textMuted, letterSpacing: '0.04em' }}>
+            {currentTime}
+          </span>
         </div>
 
-        {/* Tabs de oficinas - centrados */}
+        {/* Office tabs */}
         {offices.length > 1 && (
-          <div className="flex gap-1">
+          <div style={{ display: 'flex', gap: 4 }}>
             {offices.map((office, idx) => (
               <button
                 key={idx}
                 onClick={() => setCurrentOffice(idx)}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                 style={{
-                  background: currentOffice === idx 
-                    ? (theme === 'day' ? '#3b82f6' : '#1e3a6e')
-                    : (theme === 'day' ? 'rgba(255,255,255,0.8)' : 'rgba(15,23,42,0.8)'),
-                  color: currentOffice === idx ? '#fff' : (theme === 'day' ? '#475569' : '#94a3b8'),
-                  border: `1px solid ${currentOffice === idx ? '#3b82f6' : theme === 'day' ? '#cbd5e1' : '#1e293b'}`,
+                  padding: '5px 12px', borderRadius: 8, fontSize: 11, fontWeight: 600,
+                  cursor: 'pointer', outline: 'none',
+                  background: currentOffice === idx
+                    ? t.accent
+                    : t.glass,
+                  backdropFilter: currentOffice === idx ? 'none' : 'blur(14px)',
+                  WebkitBackdropFilter: currentOffice === idx ? 'none' : 'blur(14px)',
+                  color: currentOffice === idx ? '#fff' : t.textMuted,
+                  border: `1px solid ${currentOffice === idx ? t.accent : t.glassBorder}`,
+                  boxShadow: currentOffice === idx
+                    ? `0 0 16px ${t.accentGlow}`
+                    : '0 4px 20px rgba(0,0,0,0.3)',
+                  transition: 'all 0.2s ease',
                 }}
               >
                 Office {idx + 1}
-                <span className="ml-1 opacity-70">({office.length})</span>
+                <span style={{ opacity: 0.65, marginLeft: 4 }}>({office.length})</span>
               </button>
             ))}
           </div>
         )}
 
-        {/* Edit Layout button */}
+        {/* Edit layout button */}
         <button
           onClick={() => setIsEditMode(!isEditMode)}
-          className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-2"
           style={{
-            background: isEditMode 
-              ? (theme === 'day' ? '#3b82f6' : '#2563eb')
-              : (theme === 'day' ? 'rgba(255,255,255,0.95)' : 'rgba(9,14,26,0.95)'),
-            color: isEditMode ? '#fff' : (theme === 'day' ? '#475569' : '#8b949e'),
-            border: `1px solid ${isEditMode ? '#3b82f6' : theme === 'day' ? '#cbd5e1' : '#1e3a6e'}`,
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '6px 14px', borderRadius: 10, fontSize: 11, fontWeight: 600,
+            cursor: 'pointer', outline: 'none',
+            background: isEditMode ? t.accent : t.glass,
+            backdropFilter: isEditMode ? 'none' : 'blur(14px)',
+            WebkitBackdropFilter: isEditMode ? 'none' : 'blur(14px)',
+            color: isEditMode ? '#fff' : t.textMuted,
+            border: `1px solid ${isEditMode ? t.accent : t.glassBorder}`,
+            boxShadow: isEditMode
+              ? `0 0 18px ${t.accentGlow}`
+              : '0 4px 20px rgba(0,0,0,0.3)',
+            transition: 'all 0.2s ease',
           }}
         >
-          <span>{isEditMode ? '✓' : '✎'}</span>
-          <span>{isEditMode ? 'Done' : 'Edit Layout'}</span>
+          <span>{isEditMode ? '✓' : '⊹'}</span>
+          <span>{isEditMode ? 'Done' : 'Layout'}</span>
         </button>
       </div>
 
-      {/* ========== CANVAS SVG ========== */}
-      <svg 
-        ref={svgRef}
-        width={dimensions.width} 
-        height={dimensions.height} 
-        className="block flex-1"
-        style={{ cursor: isEditMode ? (draggedAgent ? 'grabbing' : 'grab') : 'default' }}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
-      >
-        <defs>
-          <filter id="blur" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="3" />
-          </filter>
-        </defs>
-        
-        {/* Fondo */}
-        <Floor width={dimensions.width} height={dimensions.height} theme={theme} showGrid={isEditMode} />
-        <BackWall width={dimensions.width} height={dimensions.height} theme={theme} />
-        
-        {/* Logo centrado en la pared */}
-        <WhiteboardLogo width={dimensions.width} wallH={wallH} theme={theme} officeNumber={currentOffice + 1} />
-        
-        {/* Ventanas - posiciones ajustadas */}
-        <Windows width={dimensions.width} wallH={wallH} theme={theme} />
-        
-        {/* Reloj de pared - POSICIÓN CORREGIDA (entre ventana y borde) */}
-        <WallClock x={dimensions.width - 50} y={wallH * 0.5} theme={theme} />
-        
-        {/* Librería - posición ajustada */}
-        <Bookshelf x={25} y={wallH + 30} theme={theme} />
-        
-        {/* Planta junto a librería - POSICIÓN AJUSTADA */}
-        <Plant x={90} y={wallH + 55} theme={theme} type="tall" />
-        
-        {/* Server rack */}
-        <ServerRack x={dimensions.width - 60} y={wallH + 30} />
-        
-        {/* Planta junto a server - POSICIÓN AJUSTADA */}
-        <Plant x={dimensions.width - 110} y={wallH + 75} theme={theme} type="bush" />
-        
-        {/* Grid overlay */}
-        {isEditMode && (
-          <g opacity="0.2">
-            {Array.from({ length: Math.ceil(dimensions.width / OFFICE_CONFIG.GRID_SIZE) }).map((_, i) => (
-              <line key={`v${i}`} x1={i * OFFICE_CONFIG.GRID_SIZE} y1={wallH} x2={i * OFFICE_CONFIG.GRID_SIZE} y2={dimensions.height}
-                stroke={theme === 'day' ? '#94a3b8' : '#475569'} strokeWidth="0.5" strokeDasharray="2,2" />
-            ))}
-            {Array.from({ length: Math.ceil((dimensions.height - wallH) / OFFICE_CONFIG.GRID_SIZE) }).map((_, i) => (
-              <line key={`h${i}`} x1={0} y1={wallH + i * OFFICE_CONFIG.GRID_SIZE} x2={dimensions.width} y2={wallH + i * OFFICE_CONFIG.GRID_SIZE}
-                stroke={theme === 'day' ? '#94a3b8' : '#475569'} strokeWidth="0.5" strokeDasharray="2,2" />
-            ))}
-          </g>
-        )}
-        
-        {/* Agentes */}
-        {agentPositions.map(({ x, y, agent }) => (
-          <g key={agent.id} onMouseDown={(e) => handleMouseDown(e, String(agent.id), x, y)}
-            style={{ cursor: isEditMode ? 'grab' : 'pointer', opacity: draggedAgent === String(agent.id) ? 0.7 : 1 }}>
-            <AgentDesk agent={agent} x={x} y={y} isLead={agent.name?.toLowerCase().includes('lead')} onClick={() => {}} />
-            {isEditMode && (
-              <rect 
-                x={x - (agent.name?.toLowerCase().includes('lead') ? 52 : 45)} 
-                y={y - (agent.name?.toLowerCase().includes('lead') ? 52 : 45)} 
-                width={agent.name?.toLowerCase().includes('lead') ? 104 : 90} 
-                height={agent.name?.toLowerCase().includes('lead') ? 104 : 90} 
-                fill="none"
-                stroke={theme === 'day' ? '#3b82f6' : '#60a5fa'} 
-                strokeWidth="2" 
-                strokeDasharray="4,2" 
-                rx="8"
-                opacity={draggedAgent === String(agent.id) ? 1 : 0.5} 
-              />
-            )}
-          </g>
-        ))}
-      </svg>
-
-      {/* ========== FOOTER INFO ========== */}
-      <div className="absolute bottom-3 left-3 flex items-center gap-3 px-4 py-2 rounded-xl border"
-        style={{ 
-          background: theme === 'day' ? 'rgba(255,255,255,0.95)' : 'rgba(9,14,26,0.95)', 
-          borderColor: theme === 'day' ? '#cbd5e1' : '#1e3a6e',
-        }}>
-        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ 
-          background: onlineCount === currentAgents.length ? '#3fb950' : onlineCount > 0 ? '#f0a500' : '#f85149'
-        }} />
-        <span className="text-xs" style={{ color: theme === 'day' ? '#475569' : '#8b949e' }}>
-          <span className="font-semibold" style={{ color: theme === 'day' ? '#1e293b' : '#e6edf3' }}>
-            {onlineCount}/{currentAgents.length}
-          </span>
-          <span className="ml-1">agents</span>
-        </span>
-        {offices.length > 1 && (
-          <span className="text-xs px-2 py-0.5 rounded" 
-            style={{ background: theme === 'day' ? '#e2e8f0' : '#1e293b', color: theme === 'day' ? '#64748b' : '#94a3b8' }}>
-            Office {currentOffice + 1}/{offices.length}
-          </span>
-        )}
-      </div>
-
-      {/* Theme indicator */}
-      <div className="absolute bottom-3 right-3 flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs"
-        style={{ 
-          background: theme === 'day' ? 'rgba(255,255,255,0.95)' : 'rgba(9,14,26,0.95)', 
-          borderColor: theme === 'day' ? '#cbd5e1' : '#1e3a6e',
-          color: theme === 'day' ? '#475569' : '#8b949e',
-        }}>
-        <span>{theme === 'day' ? '☀️' : theme === 'sunset' ? '🌅' : '🌙'}</span>
-        <span className="capitalize">{theme} Mode</span>
-      </div>
-
-      {/* Reset button en modo edición */}
-      {isEditMode && hasCustomPositions && (
-        <button onClick={resetPositions}
-          className="absolute bottom-3 left-1/2 transform -translate-x-1/2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-          style={{
-            background: theme === 'day' ? 'rgba(239,68,68,0.1)' : 'rgba(239,68,68,0.2)',
-            color: '#ef4444',
-            border: `1px solid ${theme === 'day' ? '#fca5a5' : '#ef4444'}`,
-          }}>
-          Reset Positions
-        </button>
-      )}
-
-      {/* Instrucciones modo edición */}
+      {/* Edit mode hint */}
       {isEditMode && (
-        <div className="absolute top-12 left-1/2 transform -translate-x-1/2 px-4 py-2 rounded-lg text-xs text-center pointer-events-none"
+        <div className="absolute top-14 left-1/2 -translate-x-1/2 pointer-events-none z-30"
           style={{
-            background: theme === 'day' ? 'rgba(59,130,246,0.1)' : 'rgba(59,130,246,0.2)',
-            color: theme === 'day' ? '#1d4ed8' : '#60a5fa',
-            border: `1px solid ${theme === 'day' ? '#93c5fd' : '#3b82f6'}`,
+            padding: '5px 16px', borderRadius: 8, fontSize: 10, fontWeight: 500,
+            background: t.isDark ? 'rgba(99,102,241,0.12)' : 'rgba(59,130,246,0.1)',
+            border: `1px solid ${t.accent}44`,
+            color: t.accent,
+            backdropFilter: 'blur(10px)',
+            letterSpacing: '0.04em',
           }}>
-          🖱️ Drag agents • Grid snap {OFFICE_CONFIG.GRID_SIZE}px
+          ⊹ Drag agents · Grid {OFFICE_CONFIG.GRID_SIZE}px snap
         </div>
       )}
+
+      {/* ========== FOOTER BAR — glassmorphism ========== */}
+      <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
+
+        {/* Agent count */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          padding: '5px 14px', borderRadius: 10,
+          background: t.glass,
+          backdropFilter: 'blur(14px)',
+          WebkitBackdropFilter: 'blur(14px)',
+          border: `1px solid ${t.glassBorder}`,
+          boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+        }}>
+          <span style={{
+            width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+            background: onlineCount === currentAgents.length
+              ? '#10b981'
+              : onlineCount > 0 ? '#f59e0b' : '#f43f5e',
+            boxShadow: `0 0 8px ${onlineCount === currentAgents.length
+              ? 'rgba(16,185,129,0.7)' : 'rgba(245,158,11,0.6)'}`,
+          }} />
+          <span style={{ fontSize: 11, color: t.textMuted }}>
+            <span style={{ fontWeight: 700, color: t.textPrimary }}>
+              {onlineCount}/{currentAgents.length}
+            </span>
+            {' '}agents online
+          </span>
+          {offices.length > 1 && (
+            <>
+              <span style={{ width: 1, height: 12, background: t.borderDefault }} />
+              <span style={{ fontSize: 10, color: t.textMuted, fontFamily: 'monospace' }}>
+                {currentOffice + 1}/{offices.length}
+              </span>
+            </>
+          )}
+        </div>
+
+        {/* Center: reset button in edit mode */}
+        {isEditMode && hasCustomPositions && (
+          <button onClick={resetPositions}
+            style={{
+              padding: '5px 14px', borderRadius: 10, fontSize: 11, fontWeight: 600,
+              cursor: 'pointer', outline: 'none',
+              background: 'rgba(244,63,94,0.12)',
+              border: '1px solid rgba(244,63,94,0.35)',
+              color: '#f43f5e',
+              backdropFilter: 'blur(10px)',
+              transition: 'all 0.2s ease',
+            } as React.CSSProperties}>
+            ↺ Reset Layout
+          </button>
+        )}
+
+        {/* Theme indicator */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 6,
+          padding: '5px 12px', borderRadius: 10,
+          background: t.glass,
+          backdropFilter: 'blur(14px)',
+          WebkitBackdropFilter: 'blur(14px)',
+          border: `1px solid ${t.glassBorder}`,
+          boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+          fontSize: 11, color: t.textMuted,
+        }}>
+          <span>{themeIcon}</span>
+          <span style={{ textTransform: 'capitalize', letterSpacing: '0.04em' }}>{theme}</span>
+        </div>
+      </div>
     </div>
   );
 }

@@ -116,7 +116,7 @@ async def login(
     # Create tokens
     access_token, access_jti = create_access_token(
         user_id=str(user.id),
-        role=user.role.value,
+        role=user.role.value if hasattr(user.role, "value") else str(user.role),
     )
     refresh_token, refresh_jti, refresh_expires = create_refresh_token(
         user_id=str(user.id),
@@ -209,7 +209,7 @@ async def refresh_token(
     # Create new tokens
     new_access_token, new_access_jti = create_access_token(
         user_id=str(user.id),
-        role=user.role.value,
+        role=user.role.value if hasattr(user.role, "value") else str(user.role),
     )
     new_refresh_token, new_refresh_jti, new_refresh_expires = create_refresh_token(
         user_id=str(user.id),

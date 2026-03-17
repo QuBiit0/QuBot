@@ -12,6 +12,7 @@ import { Step6Tools } from './Step6Tools';
 import { WizardProgress } from './WizardProgress';
 import { AvatarPreview } from './AvatarPreview';
 import { Agent, AgentClass, DomainEnum, GenderEnum, Personality, LlmConfig, Tool, AvatarConfig } from '@/types';
+import { agentsApi, ApiError } from '@/lib/api';
 import { ChevronLeft, ChevronRight, Check, Sparkles } from 'lucide-react';
 
 const STEPS = [
@@ -40,6 +41,7 @@ export function AgentWizard() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [data, setData] = useState<WizardData>({
     isCustomClass: false,
     selectedTools: [],
@@ -82,21 +84,30 @@ export function AgentWizard() {
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
-    
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    
-    console.log('Creating agent with data:', data);
-    
-    // TODO: Actual API call
-    // const response = await fetch('/api/v1/agents', {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify(agentData),
-    // });
-    
-    setIsSubmitting(false);
-    router.push('/agents');
+    setSubmitError(null);
+
+    const payload = {
+      name: data.name!,
+      domain: data.domain,
+      role: data.agentClass?.name ?? data.customClassName,
+      avatar_config: data.avatarConfig,
+      config: {
+        gender: data.gender,
+        personality: data.personality,
+        llm_config_id: data.llmConfigId,
+        tool_ids: data.selectedTools,
+        ...(data.agentClass && !data.isCustomClass ? { agent_class_id: data.agentClass.id } : {}),
+      },
+    } satisfies Partial<Agent>;
+
+    try {
+      await agentsApi.create(payload);
+      router.push('/agents');
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : 'Failed to create agent. Please try again.';
+      setSubmitError(message);
+      setIsSubmitting(false);
+    }
   };
 
   const renderStep = () => {
@@ -153,6 +164,13 @@ export function AgentWizard() {
                 </motion.div>
               </AnimatePresence>
             </div>
+
+            {/* Submit error */}
+            {submitError && (
+              <div className="mt-6 px-4 py-3 rounded-lg text-sm text-[#f85149] bg-[#f851491a] border border-[#f8514933]">
+                {submitError}
+              </div>
+            )}
 
             {/* Navigation */}
             <div className="flex items-center justify-between mt-8 pt-6 border-t border-[#21262d]">

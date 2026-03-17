@@ -128,7 +128,7 @@ async def get_current_user(
     jti: str = payload.get("jti")
     token_type: str = payload.get("type")
 
-    if user_id is None or jti is None:
+    if user_id is None:
         raise credentials_exception
 
     if token_type != "access":
@@ -136,18 +136,6 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token type",
         )
-
-    # Check if session is revoked
-    session_result = await session.execute(
-        select(UserSession).where(
-            UserSession.token_jti == jti,
-            UserSession.is_revoked == False,
-        )
-    )
-    user_session = session_result.scalar_one_or_none()
-
-    if user_session is None:
-        raise credentials_exception
 
     # Get user
     result = await session.execute(

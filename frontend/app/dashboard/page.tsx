@@ -25,7 +25,7 @@ export default function DashboardPage() {
   const totalCount = agentList.length;
 
   return (
-    <div className="h-full flex flex-col" style={{ background: 'transparent' }}>
+    <div className="flex-1 h-full flex flex-col min-w-0" style={{ background: 'transparent' }}>
       {/* Header */}
       <div
         className="flex items-center justify-between px-6 py-4 border-b"

@@ -5,12 +5,15 @@ Rate limiting configuration using slowapi
 from functools import wraps
 
 import redis
+import structlog
 from fastapi import Request
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from ..config import settings
+
+logger = structlog.get_logger(__name__)
 
 # Create limiter with Redis storage if available
 try:
@@ -22,14 +25,14 @@ try:
         storage_uri=settings.REDIS_URL,
         strategy="moving-window",
     )
-    print("Rate limiting using Redis storage")
-except:
-    # Fallback to memory storage
+    logger.info("rate_limiter_ready", storage="redis", url=settings.REDIS_URL)
+except (redis.ConnectionError, redis.TimeoutError, Exception) as e:
+    # Fallback to in-memory storage when Redis is unavailable
     limiter = Limiter(
         key_func=get_remote_address,
         default_limits=["100/minute"],
     )
-    print("Rate limiting using memory storage")
+    logger.warning("rate_limiter_fallback", storage="memory", reason=str(e))
 
 
 def get_user_identifier(request: Request) -> str:

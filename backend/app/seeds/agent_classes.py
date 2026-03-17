@@ -5,11 +5,14 @@ Run this after migrations to populate the database
 
 import asyncio
 
+import structlog
 from sqlmodel import select
 
 from ..database import AsyncSessionLocal
 from ..models.agent import AgentClass
 from ..models.enums import DomainEnum
+
+logger = structlog.get_logger(__name__)
 
 PREDEFINED_CLASSES = [
     # TECH Domain
@@ -250,7 +253,7 @@ async def seed_agent_classes():
         existing = result.scalars().all()
 
         if existing:
-            print(f"Agent classes already seeded ({len(existing)} found). Skipping...")
+            logger.info("seed_skipped", model="AgentClass", existing_count=len(existing))
             return
 
         # Create all predefined classes
@@ -259,7 +262,7 @@ async def seed_agent_classes():
             session.add(agent_class)
 
         await session.commit()
-        print(f"Seeded {len(PREDEFINED_CLASSES)} agent classes")
+        logger.info("seed_completed", model="AgentClass", seeded_count=len(PREDEFINED_CLASSES))
 
 
 def seed():

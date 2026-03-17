@@ -30,6 +30,7 @@ COPY tailwind.config.js ./
 COPY tsconfig.json ./
 
 # Copiar código fuente
+COPY middleware.ts ./
 COPY app ./app
 COPY components ./components
 COPY hooks ./hooks

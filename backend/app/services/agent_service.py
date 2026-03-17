@@ -2,7 +2,6 @@
 Agent Service - Business logic for agent management
 """
 
-import asyncio
 from uuid import UUID
 
 from sqlalchemy import func
@@ -92,11 +91,9 @@ class AgentService:
         skip: int = 0,
         limit: int = 100,
     ) -> tuple[list[Agent], int]:
-        """Get paginated agents and total count in parallel"""
-        agents, total = await asyncio.gather(
-            self.get_agents(status=status, domain=domain, skip=skip, limit=limit),
-            self.count_agents(status=status, domain=domain),
-        )
+        """Get paginated agents and total count"""
+        agents = await self.get_agents(status=status, domain=domain, skip=skip, limit=limit)
+        total = await self.count_agents(status=status, domain=domain)
         return agents, total
 
     async def update_agent(self, agent_id: UUID, **updates) -> Agent | None:

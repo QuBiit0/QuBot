@@ -39,6 +39,8 @@ export const useAuthStore = create<AuthState>()(
         try {
           const response = await authApi.login(data);
           localStorage.setItem('token', response.access_token);
+          // Note: the HttpOnly refresh_token cookie is set by the backend on /auth/login.
+          // The Next.js middleware reads that cookie to protect routes.
           set({ token: response.access_token, isLoading: false });
 
           // Fetch user profile after login
@@ -71,6 +73,7 @@ export const useAuthStore = create<AuthState>()(
           // Even if API call fails, clear local state
         }
         localStorage.removeItem('token');
+        // The backend's /auth/logout clears the HttpOnly refresh_token cookie server-side.
         set({
           user: null,
           token: null,

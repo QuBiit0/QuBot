@@ -15,21 +15,10 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Check for token in cookie (set by zustand persist) or Authorization header
-  const token =
-    request.cookies.get('qubot-auth-storage')?.value ||
-    request.headers.get('Authorization');
-
-  // Parse zustand persisted state from cookie
-  if (token) {
-    try {
-      const parsed = JSON.parse(decodeURIComponent(token));
-      if (parsed?.state?.token) {
-        return NextResponse.next();
-      }
-    } catch {
-      // Not JSON — could be a raw token header, allow through
-    }
+  // Check for the HttpOnly refresh_token cookie set by the backend on login
+  const hasToken = request.cookies.get('refresh_token')?.value;
+  if (hasToken) {
+    return NextResponse.next();
   }
 
   // No valid token found — redirect to login

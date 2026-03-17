@@ -126,22 +126,20 @@ class TaskService:
         skip: int = 0,
         limit: int = 100,
     ) -> tuple[list[Task], int]:
-        """Get paginated tasks and total count in parallel"""
-        tasks, total = await asyncio.gather(
-            self.get_tasks(
-                status=status,
-                assigned_agent_id=assigned_agent_id,
-                domain_hint=domain_hint,
-                priority=priority,
-                skip=skip,
-                limit=limit,
-            ),
-            self.count_tasks(
-                status=status,
-                assigned_agent_id=assigned_agent_id,
-                domain_hint=domain_hint,
-                priority=priority,
-            ),
+        """Get paginated tasks and total count"""
+        tasks = await self.get_tasks(
+            status=status,
+            assigned_agent_id=assigned_agent_id,
+            domain_hint=domain_hint,
+            priority=priority,
+            skip=skip,
+            limit=limit,
+        )
+        total = await self.count_tasks(
+            status=status,
+            assigned_agent_id=assigned_agent_id,
+            domain_hint=domain_hint,
+            priority=priority,
         )
         return tasks, total
 
