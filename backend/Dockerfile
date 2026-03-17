@@ -12,22 +12,41 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# Install system dependencies
+# Install system dependencies + Chromium runtime libs for Playwright
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libpq-dev \
     curl \
+    # Chromium dependencies
+    libnss3 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libdrm2 \
+    libdbus-1-3 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libasound2 \
+    libpango-1.0-0 \
+    libcairo2 \
+    libgdk-pixbuf-xlib-2.0-0 \
+    libx11-xcb1 \
+    libxcb-dri3-0 \
     && rm -rf /var/lib/apt/lists/*
 
 # Create virtual environment
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Install Python dependencies
+# Install Python dependencies then download Playwright Chromium browser binary
 COPY requirements.txt .
 RUN pip install --upgrade pip && \
     pip install -r requirements.txt && \
-    playwright install chromium --with-deps
+    playwright install chromium
 
 # ===========================================
 # Stage 2: Production
@@ -41,14 +60,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     APP_HOME=/app \
     PYTHONPATH=/app
 
-# Install runtime dependencies (including Playwright system deps)
+# Install runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     libpq5 \
-    # Chromium system dependencies
-    libglib2.0-0 \
     libnss3 \
-    libnspr4 \
     libatk1.0-0 \
     libatk-bridge2.0-0 \
     libcups2 \
@@ -61,6 +77,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxrandr2 \
     libgbm1 \
     libasound2 \
+    libpango-1.0-0 \
+    libcairo2 \
+    libgdk-pixbuf-xlib-2.0-0 \
+    libx11-xcb1 \
+    libxcb-dri3-0 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy virtual environment from builder (includes playwright browsers)
