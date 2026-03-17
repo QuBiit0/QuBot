@@ -49,7 +49,7 @@ services:
     container_name: qubot-api
     restart: unless-stopped
     environment:
-      - DEBUG=false
+      - DEBUG=${DEBUG:-true}
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-qubot}:${POSTGRES_PASSWORD:-changeme}@db:5432/${POSTGRES_DB:-qubot_db}
       - REDIS_URL=redis://redis:6379/0
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY is required - set it in .env}
@@ -95,7 +95,7 @@ services:
     container_name: qubot-worker
     restart: unless-stopped
     environment:
-      - DEBUG=false
+      - DEBUG=${DEBUG:-true}
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-qubot}:${POSTGRES_PASSWORD:-changeme}@db:5432/${POSTGRES_DB:-qubot_db}
       - REDIS_URL=redis://redis:6379/0
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY is required - set it in .env}

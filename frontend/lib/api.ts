@@ -201,6 +201,7 @@ export const authApi = {
     return fetchWithAuth<TokenResponse>(`${API_BASE_URL}/auth/login`, {
       method: 'POST',
       body: JSON.stringify(data),
+      credentials: 'include', // needed for cross-origin Set-Cookie (refresh_token)
     });
   },
 

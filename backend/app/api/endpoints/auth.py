@@ -9,6 +9,7 @@ from fastapi.security import HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ...config import settings
 from ...core.rate_limit import limiter
 from ...core.security import (
     cleanup_expired_sessions,
@@ -138,7 +139,7 @@ async def login(
         key="refresh_token",
         value=refresh_token,
         httponly=True,
-        secure=True,  # Set to True in production with HTTPS
+        secure=not settings.DEBUG,  # False in dev (HTTP), True in prod (HTTPS)
         samesite="lax",
         max_age=7 * 24 * 60 * 60,  # 7 days
     )
@@ -230,7 +231,7 @@ async def refresh_token(
         key="refresh_token",
         value=new_refresh_token,
         httponly=True,
-        secure=True,
+        secure=not settings.DEBUG,
         samesite="lax",
         max_age=7 * 24 * 60 * 60,
     )
