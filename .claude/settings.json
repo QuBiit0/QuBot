@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(SECRET_KEY=\"unit-test-secret-key-minimum-32-chars-padding\" DATABASE_URL=\"postgresql+asyncpg://test:test@localhost:5432/test\" python -m pytest tests/unit/ -v --tb=short --ignore=tests/unit/test_agent_service.py --ignore=tests/unit/test_task_service.py)",
+      "Bash(pip install:*)",
+      "Bash(SECRET_KEY=\"unit-test-secret-key-minimum-32-chars-padding\" DATABASE_URL=\"postgresql+asyncpg://test:test@localhost:5432/test\" python -m pytest tests/unit/test_security.py tests/unit/test_worker.py -v --tb=short)",
+      "Bash(SECRET_KEY=\"unit-test-secret-key-minimum-32-chars-padding\" DATABASE_URL=\"postgresql+asyncpg://test:test@localhost:5432/test\" python -m pytest tests/unit/test_security.py tests/unit/test_worker.py -v --tb=short -p no:cacheprovider)"
+    ]
+  }
+}
