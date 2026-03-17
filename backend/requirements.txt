@@ -32,6 +32,20 @@ lxml==5.1.0
 duckduckgo-search==6.1.9
 playwright==1.44.0
 
+# Document Processing
+pdfplumber==0.11.0
+python-docx==1.1.0
+openpyxl==3.1.2
+chardet==5.2.0
+
+# Data Analysis (for code executor sandbox)
+pandas==2.2.0
+numpy==1.26.4
+matplotlib==3.8.2
+
+# Email
+aiosmtplib==3.0.1
+
 # Security
 python-jose[cryptography]==3.3.0
 bcrypt>=4.0.0
