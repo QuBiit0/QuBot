@@ -495,12 +495,12 @@ function ToolCard({ tool, onUpdate }: { tool: ToolConfig; onUpdate: (updated: To
     e.preventDefault();
     setSaving(true); setMsg(''); setIsError(false);
     try {
-      const updated = await api.put<ToolConfig>(
+      const res = await api.put<{ data: ToolConfig }>(
         `/integrations/tool-configs/${tool.tool_name}`,
         { enabled, config: fieldVals }
       );
       setMsg('Saved');
-      onUpdate(updated);
+      onUpdate(res.data);
     } catch (err) {
       setMsg(err instanceof ApiError ? err.message : 'Save failed');
       setIsError(true);
@@ -512,11 +512,12 @@ function ToolCard({ tool, onUpdate }: { tool: ToolConfig; onUpdate: (updated: To
   const test = async () => {
     setTesting(true); setMsg(''); setIsError(false);
     try {
-      const res = await api.post<{ success: boolean; message?: string; error?: string }>(
+      const res = await api.post<{ data: { success: boolean; message?: string; output?: string; error?: string } }>(
         `/integrations/tool-configs/${tool.tool_name}/test`, {}
       );
-      setMsg(res.success ? (res.message ?? 'Test passed ✓') : (res.error ?? 'Test failed'));
-      setIsError(!res.success);
+      const d = res.data;
+      setMsg(d.success ? (d.message ?? d.output ?? 'Test passed ✓') : (d.error ?? 'Test failed'));
+      setIsError(!d.success);
     } catch (err) {
       setMsg(err instanceof ApiError ? err.message : 'Test failed');
       setIsError(true);
@@ -645,8 +646,8 @@ function IntegrationsSection() {
   const [filter,  setFilter]  = useState('');
 
   useEffect(() => {
-    api.get<ToolConfig[]>('/integrations/tool-configs')
-      .then(r => { setTools(r); setLoading(false); })
+    api.get<{ data: ToolConfig[] }>('/integrations/tool-configs')
+      .then(r => { setTools(r.data); setLoading(false); })
       .catch(e => { setError(e instanceof Error ? e.message : 'Failed to load'); setLoading(false); });
   }, []);
 
@@ -726,8 +727,8 @@ function McpSection() {
 
   const load = () => {
     setLoading(true);
-    api.get<MCPServer[]>('/integrations/mcp-servers')
-      .then(r => { setServers(r); setLoading(false); })
+    api.get<{ data: MCPServer[] }>('/integrations/mcp-servers')
+      .then(r => { setServers(r.data); setLoading(false); })
       .catch(e => { setError(e instanceof Error ? e.message : 'Failed to load'); setLoading(false); });
   };
 
@@ -776,18 +777,20 @@ function McpSection() {
   const testServer = async (id: string) => {
     setTestingId(id); setTestMsgs(p => ({ ...p, [id]: { msg: '', err: false } }));
     try {
-      const res = await api.post<{ success: boolean; tools_count?: number; tools?: unknown[]; message?: string; error?: string }>(
+      const res = await api.post<{ data: { status: string; tools: unknown[]; tool_count: number; error?: string } }>(
         `/integrations/mcp-servers/${id}/test`, {}
       );
-      const count = res.tools_count ?? res.tools?.length ?? 0;
+      const d = res.data;
+      const ok = d.status === 'connected';
+      const count = d.tool_count ?? d.tools?.length ?? 0;
       setTestMsgs(p => ({
         ...p,
         [id]: {
-          msg: res.success ? `Connected · ${count} tool${count !== 1 ? 's' : ''} available` : (res.error ?? 'Test failed'),
-          err: !res.success,
+          msg: ok ? `Connected · ${count} tool${count !== 1 ? 's' : ''} available` : (d.error ?? 'Test failed'),
+          err: !ok,
         }
       }));
-      if (res.success) load(); // refresh to update tools_cache
+      if (ok) load(); // refresh to update tools_cache
     } catch (err) {
       setTestMsgs(p => ({
         ...p,
