@@ -520,10 +520,20 @@ Provide a comprehensive summary that:
 
     def _parse_domain(self, domain_str: str) -> DomainEnum:
         """Parse domain string to enum"""
+        # Normalize: map common LLM outputs to actual enum values
+        _alias_map = {
+            "software": "TECH",
+            "tech": "TECH",
+            "technology": "TECH",
+            "data": "TECH",
+            "operations": "BUSINESS",
+            "research": "OTHER",
+        }
+        normalized = _alias_map.get(domain_str.lower(), domain_str.upper())
         try:
-            return DomainEnum(domain_str.lower())
+            return DomainEnum(normalized)
         except ValueError:
-            return DomainEnum.SOFTWARE
+            return DomainEnum.TECH
 
     def _parse_priority(self, priority_str: str) -> PriorityEnum:
         """Parse priority string to enum"""

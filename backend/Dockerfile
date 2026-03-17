@@ -26,7 +26,8 @@ ENV PATH="/opt/venv/bin:$PATH"
 # Install Python dependencies
 COPY requirements.txt .
 RUN pip install --upgrade pip && \
-    pip install -r requirements.txt
+    pip install -r requirements.txt && \
+    playwright install chromium --with-deps
 
 # ===========================================
 # Stage 2: Production
@@ -40,14 +41,31 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     APP_HOME=/app \
     PYTHONPATH=/app
 
-# Install runtime dependencies
+# Install runtime dependencies (including Playwright system deps)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     libpq5 \
+    # Chromium system dependencies
+    libglib2.0-0 \
+    libnss3 \
+    libnspr4 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libdrm2 \
+    libdbus-1-3 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libasound2 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy virtual environment from builder
+# Copy virtual environment from builder (includes playwright browsers)
 COPY --from=builder /opt/venv /opt/venv
+COPY --from=builder /root/.cache/ms-playwright /root/.cache/ms-playwright
 
 # Create app user
 RUN groupadd -r qubot && useradd -r -g qubot qubot

@@ -16,8 +16,10 @@ from .base import (
 from .browser_tool import WebBrowserTool
 from .filesystem_tool import FilesystemTool
 from .http_tool import HttpApiTool
+from .playwright_tool import PlaywrightBrowserTool
 from .scheduler_tool import SchedulerTool
 from .shell_tool import SystemShellTool
+from .web_search_tool import WebSearchTool
 
 __all__ = [
     # Base classes
@@ -35,6 +37,8 @@ __all__ = [
     "WebBrowserTool",
     "FilesystemTool",
     "SchedulerTool",
+    "WebSearchTool",
+    "PlaywrightBrowserTool",
 ]
 
 
@@ -57,5 +61,7 @@ def register_default_tools(config: dict = None) -> ToolRegistry:
     registry.register(WebBrowserTool, config.get("browser", {}))
     registry.register(FilesystemTool, config.get("filesystem", {}))
     registry.register(SchedulerTool, config.get("scheduler", {}))
+    registry.register(WebSearchTool, config.get("web_search", {}))
+    registry.register(PlaywrightBrowserTool, config.get("playwright", {}))
 
     return registry
