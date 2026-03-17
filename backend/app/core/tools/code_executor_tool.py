@@ -61,9 +61,9 @@ class CodeExecutorTool(BaseTool):
             "timeout": ToolParameter(
                 name="timeout",
                 type="integer",
-                description=f"Execution timeout in seconds (max {MAX_TIMEOUT})",
+                description=f"Execution timeout in seconds (max {self.MAX_TIMEOUT})",
                 required=False,
-                default=DEFAULT_TIMEOUT,
+                default=self.DEFAULT_TIMEOUT,
             ),
             "input_data": ToolParameter(
                 name="input_data",

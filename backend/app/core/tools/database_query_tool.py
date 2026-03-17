@@ -55,7 +55,7 @@ class DatabaseQueryTool(BaseTool):
             "limit": ToolParameter(
                 name="limit",
                 type="integer",
-                description=f"Max rows to return (default 100, max {MAX_ROWS})",
+                description=f"Max rows to return (default 100, max {self.MAX_ROWS})",
                 required=False,
                 default=100,
             ),
