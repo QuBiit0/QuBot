@@ -15,6 +15,8 @@ from .config import (
 from .llm import LlmCallLog, LlmConfig
 from .memory import AgentMemory, GlobalMemory, TaskMemory
 from .messaging import Conversation, ConversationMessage, MessagingChannel
+from .integration_config import IntegrationConfig
+from .mcp_server import MCPServer
 from .task import Task, TaskEvent
 from .tool import Tool
 
@@ -39,4 +41,6 @@ __all__ = [
     "EnvironmentConfig",
     "ConfigCategory",
     "ConfigValueType",
+    "IntegrationConfig",
+    "MCPServer",
 ]

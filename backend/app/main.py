@@ -73,6 +73,7 @@ from .api.endpoints.memories import router as memories_router
 from .api.endpoints.system import router as system_router
 from .api.endpoints.tasks import router as tasks_router
 from .api.endpoints.telegram import router as telegram_router
+from .api.endpoints.integrations import router as integrations_router
 from .api.endpoints.tool_execution import router as tool_execution_router
 from .api.endpoints.tools import router as tools_router
 from .api.endpoints.websocket import router as websocket_router
@@ -97,6 +98,23 @@ async def lifespan(app: FastAPI):
         logger.info("Seed data verified.")
     except Exception as exc:
         logger.error("Seed error: %s", exc)
+
+    # Load tool integration configs from DB and apply to registry
+    try:
+        from .api.endpoints.integrations import TOOL_CONFIG_SCHEMAS, _env_defaults, _reload_tool
+        from .database import AsyncSessionLocal
+        from .models.integration_config import IntegrationConfig
+        from sqlmodel import select as _select
+
+        async with AsyncSessionLocal() as _sess:
+            _result = await _sess.execute(_select(IntegrationConfig))
+            for _cfg in _result.scalars().all():
+                if _cfg.tool_name in TOOL_CONFIG_SCHEMAS:
+                    _live = {**_env_defaults(_cfg.tool_name), **_cfg.config}
+                    _reload_tool(_cfg.tool_name, _live)
+        logger.info("Tool integration configs loaded.")
+    except Exception as exc:
+        logger.warning(f"Tool config load skipped: {exc}")
 
     # Setup Redis pub/sub for realtime
     try:
@@ -237,6 +255,7 @@ app.include_router(websocket_router)
 app.include_router(chat_router, prefix=settings.API_V1_STR)
 app.include_router(telegram_router, prefix=settings.API_V1_STR)
 app.include_router(config_router, prefix=settings.API_V1_STR)
+app.include_router(integrations_router, prefix=settings.API_V1_STR)
 app.include_router(skills_router, prefix=settings.API_V1_STR)
 
 

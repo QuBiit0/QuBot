@@ -319,6 +319,13 @@ async function post<T>(endpoint: string, data: unknown): Promise<T> {
   });
 }
 
+async function put<T>(endpoint: string, data: unknown): Promise<T> {
+  return fetchWithAuth<T>(`${API_BASE_URL}${endpoint}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
 async function patch<T>(endpoint: string, data: unknown): Promise<T> {
   return fetchWithAuth<T>(`${API_BASE_URL}${endpoint}`, {
     method: 'PATCH',
@@ -350,6 +357,7 @@ export const api = {
   deleteTask: tasksApi.delete,
   get,
   post,
+  put,
   patch,
   delete: del,
 };

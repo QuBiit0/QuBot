@@ -241,6 +241,13 @@ class ToolRegistry:
         """Get all tools formatted for LLM function calling"""
         return [tool.get_schema() for tool in self._tools.values()]
 
+    def reload(self, tool_class: type, config: dict | None = None) -> "BaseTool":
+        """Re-register a tool with new config, replacing existing instance."""
+        instance = tool_class(config or {})
+        self._tools[instance.name] = instance
+        self._tool_classes[instance.name] = tool_class
+        return instance
+
     def unregister(self, name: str) -> None:
         """Unregister a tool"""
         self._tools.pop(name, None)
