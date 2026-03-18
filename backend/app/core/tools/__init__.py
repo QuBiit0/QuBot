@@ -22,12 +22,14 @@ from .email_tool import EmailTool
 from .filesystem_tool import FilesystemTool
 from .github_tool import GitHubTool
 from .http_tool import HttpApiTool
+from .mcp_installer_tool import MCPInstallerTool
 from .memory_tool import AgentMemoryTool
 from .notification_tool import NotificationTool
 from .playwright_tool import PlaywrightBrowserTool
 from .scheduler_tool import SchedulerTool
 from .shell_tool import SystemShellTool
 from .web_search_tool import WebSearchTool
+from .delegate_tool import DelegateTool
 
 __all__ = [
     # Base classes
@@ -56,6 +58,8 @@ __all__ = [
     "EmailTool",
     "NotificationTool",
     "DocsSearchTool",
+    "MCPInstallerTool",
+    "DelegateTool",
 ]
 
 
@@ -90,5 +94,7 @@ def register_default_tools(config: dict = None) -> ToolRegistry:
     registry.register(EmailTool, config.get("email", {}))
     registry.register(NotificationTool, config.get("notification", {}))
     registry.register(DocsSearchTool, config.get("docs_search", {}))
+    registry.register(MCPInstallerTool, config.get("mcp_installer", {}))
+    registry.register(DelegateTool, config.get("delegate_tool", {}))
 
     return registry

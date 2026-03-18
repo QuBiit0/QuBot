@@ -60,6 +60,8 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 
 // --- Providers ---
 
+import { AuthProvider } from '@/components/providers/AuthProvider';
+
 export default function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(
     () =>
@@ -80,7 +82,9 @@ export default function Providers({ children }: { children: ReactNode }) {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        {children}
+        <AuthProvider>
+          {children}
+        </AuthProvider>
         <ReactQueryDevtools initialIsOpen={false} />
       </QueryClientProvider>
     </ErrorBoundary>

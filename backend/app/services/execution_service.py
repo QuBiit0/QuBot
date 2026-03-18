@@ -207,8 +207,8 @@ class ExecutionService:
             context["memory_context"] = memory_context
             context["system_prompt"] += f"\n\n{memory_context}"
 
-        # Get available tools
-        tools = self.tool_service.get_tool_definitions()
+        # Get available tools (built-in + MCP, filtered by enabled)
+        tools = await self.tool_service.get_tool_definitions_async()
         context["tools"] = tools
 
         return context

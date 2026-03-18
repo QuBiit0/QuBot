@@ -1,9 +1,10 @@
 """
 MCP Client - Connect to Model Context Protocol servers.
 
-Supports two transports:
-  - SSE  (HTTP/Server-Sent Events) — hosted MCP servers
-  - stdio (local subprocess)       — npx/uvx/python MCP servers
+Supports three transports:
+  - SSE  (HTTP/Server-Sent Events) — legacy hosted MCP servers (spec 2024-11-05)
+  - HTTP (Streamable HTTP)          — modern hosted MCP servers (spec 2025-03-26)
+  - stdio (local subprocess)        — npx/uvx/python MCP servers
 
 Uses the official 'mcp' Python SDK when available.
 Falls back to a lightweight httpx-based implementation for SSE servers.
@@ -35,6 +36,54 @@ def _mcp_tool_to_dict(tool: Any) -> dict:
         "description": str(getattr(tool, "description", "") or ""),
         "input_schema": schema,
     }
+
+
+# ---------------------------------------------------------------------------
+# Streamable HTTP transport (official mcp package — spec 2025-03-26)
+# ---------------------------------------------------------------------------
+
+async def list_tools_http(
+    url: str,
+    headers: dict[str, str] | None = None,
+    timeout: int = 30,
+) -> list[dict]:
+    """List tools from a Streamable HTTP MCP server (modern hosted servers)."""
+    try:
+        from mcp import ClientSession
+        from mcp.client.streamable_http import streamablehttp_client
+
+        async with streamablehttp_client(url, headers=headers or {}) as (read, write, _):
+            async with ClientSession(read, write) as session:
+                await asyncio.wait_for(session.initialize(), timeout=timeout)
+                result = await asyncio.wait_for(session.list_tools(), timeout=timeout)
+                return [_mcp_tool_to_dict(t) for t in result.tools]
+
+    except Exception as e:
+        raise ConnectionError(f"HTTP MCP server '{url}': {e}") from e
+
+
+async def call_tool_http(
+    url: str,
+    tool_name: str,
+    args: dict,
+    headers: dict[str, str] | None = None,
+    timeout: int = 30,
+) -> str:
+    """Call a tool on a Streamable HTTP MCP server."""
+    try:
+        from mcp import ClientSession
+        from mcp.client.streamable_http import streamablehttp_client
+
+        async with streamablehttp_client(url, headers=headers or {}) as (read, write, _):
+            async with ClientSession(read, write) as session:
+                await asyncio.wait_for(session.initialize(), timeout=timeout)
+                result = await asyncio.wait_for(
+                    session.call_tool(tool_name, args), timeout=timeout
+                )
+                return _extract_content(result)
+
+    except Exception as e:
+        raise RuntimeError(f"HTTP MCP tool call '{tool_name}' on '{url}': {e}") from e
 
 
 # ---------------------------------------------------------------------------

@@ -10,7 +10,8 @@ import {
   Settings,
   Wrench,
   Sparkles,
-  Zap
+  Zap,
+  Store
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -20,6 +21,7 @@ const navItems = [
   { href: '/agents', label: 'Agents', icon: Users },
   { href: '/chat', label: 'Chat', icon: MessageSquare },
   { href: '/tools', label: 'Tools', icon: Wrench },
+  { href: '/marketplace', label: 'Marketplace', icon: Store },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 

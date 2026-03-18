@@ -10,6 +10,7 @@ from .base import (
     ToolDefinition,
     ToolResult,
 )
+from .failover import FailoverProvider
 from .registry import LlmProviderRegistry, get_provider_registry, register_provider
 
 # Import providers to register them (with graceful fallback if deps not installed)
@@ -38,6 +39,27 @@ try:
 except ImportError:
     pass
 
+# New providers (Phase 1)
+try:
+    from .openrouter_provider import OpenRouterProvider
+except ImportError:
+    pass
+
+try:
+    from .deepseek_provider import DeepSeekProvider
+except ImportError:
+    pass
+
+try:
+    from .azure_openai_provider import AzureOpenAiProvider
+except ImportError:
+    pass
+
+try:
+    from .custom_openai_provider import CustomOpenAiProvider
+except ImportError:
+    pass
+
 __all__ = [
     # Base classes
     "BaseLlmProvider",
@@ -50,10 +72,16 @@ __all__ = [
     "LlmProviderRegistry",
     "get_provider_registry",
     "register_provider",
+    # Failover
+    "FailoverProvider",
     # Providers (may not be available)
     "OpenAiProvider",
     "AnthropicProvider",
     "GoogleProvider",
     "GroqProvider",
     "OllamaProvider",
+    "OpenRouterProvider",
+    "DeepSeekProvider",
+    "AzureOpenAiProvider",
+    "CustomOpenAiProvider",
 ]

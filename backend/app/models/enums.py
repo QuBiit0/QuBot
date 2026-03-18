@@ -75,10 +75,12 @@ class LlmProviderEnum(str, enum.Enum):
     GROQ = "GROQ"
     OPENROUTER = "OPENROUTER"
     DEEPSEEK = "DEEPSEEK"
+    AZURE_OPENAI = "AZURE_OPENAI"
     KIMI = "KIMI"
     MINIMAX = "MINIMAX"
     ZHIPU = "ZHIPU"
     LOCAL = "LOCAL"
+    OLLAMA = "OLLAMA"
     CUSTOM = "CUSTOM"
     OTHER = "OTHER"
 

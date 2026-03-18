@@ -214,6 +214,13 @@ TOOL_CONFIG_SCHEMAS: dict = {
             {"name": "timeout", "label": "Timeout (seconds)", "type": "number", "default": 20},
         ],
     },
+    "mcp_installer": {
+        "label": "MCP Installer",
+        "description": "Autonomous MCP server manager — agents can discover & register MCP servers",
+        "icon": "🔧",
+        "category": "misc",
+        "fields": [],
+    },
 }
 
 _MASKED = "••••••••"
@@ -444,6 +451,8 @@ async def test_tool_config(
             test_params = {"action": "list", "path": "/"}
         elif tool_name in ("browser_automation",):
             return {"data": {"success": True, "message": "Playwright config saved."}}
+        elif tool_name == "mcp_installer":
+            test_params = {"operation": "list_registered"}
         else:
             return {"data": {"success": True, "message": f"{tool_name} has no test operation."}}
 
