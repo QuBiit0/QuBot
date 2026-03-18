@@ -17,7 +17,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...channels import get_channel_registry
-from ...core.database import get_session
+from ...database import get_session
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/channels", tags=["channels"])
