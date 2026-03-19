@@ -1,14 +1,281 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAgents, useCreateAgent } from '@/hooks/useAgents';
 import { useAgentsStore } from '@/store/agents.store';
+import { useCreateTask } from '@/hooks/useTasks';
 import { AgentWizard } from '@/components/wizard/AgentWizard';
 import { PageLoader, ErrorMessage, EmptyState, toast } from '@/components/ui';
-import { Plus, User, MoreVertical, Cpu, Activity, Users, Settings, Zap, ArrowRight, ShieldCheck } from 'lucide-react';
+import {
+  Plus, User, Cpu, Activity, Users, Settings, Zap, ArrowRight,
+  ShieldCheck, X, Loader2,
+} from 'lucide-react';
+import { Agent, Task } from '@/types';
+
+// ─── Assign Task Modal ────────────────────────────────────────────────────────
+
+interface AssignTaskModalProps {
+  agent: Agent;
+  onClose: () => void;
+}
+
+function AssignTaskModal({ agent, onClose }: AssignTaskModalProps) {
+  const createTask = useCreateTask();
+  const [form, setForm] = useState({
+    title: '',
+    description: '',
+    priority: 'MEDIUM' as Task['priority'],
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.title.trim()) return;
+
+    createTask.mutate(
+      {
+        title: form.title.trim(),
+        description: form.description.trim() || undefined,
+        priority: form.priority,
+        status: 'IN_PROGRESS',
+        assigned_agent_id: String(agent.id),
+      },
+      {
+        onSuccess: () => {
+          toast.success('Task assigned', `"${form.title}" assigned to ${agent.name}`);
+          onClose();
+        },
+        onError: (err) => toast.error('Failed to assign task', err.message),
+      },
+    );
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="w-full max-w-sm bg-slate-900 border border-white/10 rounded-2xl shadow-[0_0_60px_rgba(0,0,0,0.5)] overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
+          <div>
+            <h2 className="text-base font-semibold text-white">Assign Task</h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              to <span className="text-blue-400 font-medium">{agent.name}</span>
+            </p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1.5">Task Title *</label>
+            <input
+              autoFocus
+              type="text"
+              value={form.title}
+              onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+              placeholder="What should this agent do?"
+              required
+              className="w-full px-3 py-2.5 bg-slate-800 border border-white/10 rounded-lg text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500/50 transition-colors"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1.5">Description</label>
+            <textarea
+              value={form.description}
+              onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+              placeholder="Optional details..."
+              rows={2}
+              className="w-full px-3 py-2.5 bg-slate-800 border border-white/10 rounded-lg text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500/50 transition-colors resize-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1.5">Priority</label>
+            <select
+              value={form.priority}
+              onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value as Task['priority'] }))}
+              className="w-full px-3 py-2.5 bg-slate-800 border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500/50 transition-colors"
+            >
+              <option value="LOW">Low</option>
+              <option value="MEDIUM">Medium</option>
+              <option value="HIGH">High</option>
+              <option value="CRITICAL">Critical</option>
+            </select>
+          </div>
+
+          <div className="flex gap-3 pt-1">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-white/10 rounded-xl text-sm font-medium text-slate-300 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={!form.title.trim() || createTask.isPending}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-sm font-medium text-white transition-colors"
+            >
+              {createTask.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+              Assign
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ─── Stat Card ────────────────────────────────────────────────────────────────
+
+interface StatCardProps {
+  label: string;
+  value: number;
+  icon: React.ReactNode;
+  color: 'blue' | 'emerald' | 'slate' | 'purple';
+  pulse?: boolean;
+}
+
+const colorMap: Record<StatCardProps['color'], string> = {
+  blue:    'from-blue-500/20 to-blue-600/5 border-blue-500/30 text-blue-400',
+  emerald: 'from-emerald-500/20 to-emerald-600/5 border-emerald-500/30 text-emerald-400',
+  slate:   'from-slate-500/20 to-slate-600/5 border-slate-500/30 text-slate-400',
+  purple:  'from-purple-500/20 to-purple-600/5 border-purple-500/30 text-purple-400',
+};
+
+function StatCard({ label, value, icon, color, pulse = false }: StatCardProps) {
+  return (
+    <div className={`relative p-6 rounded-2xl bg-gradient-to-br border backdrop-blur-sm ${colorMap[color]} shadow-lg overflow-hidden group hover:border-opacity-50 transition-all`}>
+      <div className="flex items-center justify-between mb-4">
+        <span className="text-slate-300 font-medium uppercase tracking-wider text-xs">{label}</span>
+        <div className={`p-2 rounded-xl bg-slate-950/50 shadow-inner ${pulse ? 'animate-pulse' : ''}`}>
+          {icon}
+        </div>
+      </div>
+      <div className="flex items-end gap-3">
+        <p className="text-4xl font-extrabold text-white">{value}</p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Agent Card ───────────────────────────────────────────────────────────────
+
+interface AgentCardProps {
+  agent: Agent;
+  onAssign: (agent: Agent) => void;
+}
+
+function AgentCard({ agent, onAssign }: AgentCardProps) {
+  const router = useRouter();
+  const isWorking = agent.status === 'WORKING';
+
+  return (
+    <div
+      className={`group relative p-5 bg-slate-900/60 backdrop-blur-md border rounded-2xl transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl flex flex-col justify-between ${
+        isWorking
+          ? 'border-blue-500/50 shadow-[0_5px_30px_rgba(59,130,246,0.15)]'
+          : 'border-white/10 hover:border-white/20'
+      }`}
+    >
+      {/* Top */}
+      <div className="flex items-start justify-between mb-5">
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            <div
+              className={`w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-2xl shadow-inner border border-white/10 ${
+                isWorking ? 'bg-gradient-to-br from-blue-500 to-indigo-600' : 'bg-slate-800'
+              }`}
+            >
+              {agent.name.charAt(0).toUpperCase()}
+            </div>
+            {isWorking && (
+              <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-4 w-4 bg-emerald-500 border-2 border-slate-900"></span>
+              </span>
+            )}
+          </div>
+          <div>
+            <h3 className="font-bold text-lg text-white group-hover:text-blue-400 transition-colors">{agent.name}</h3>
+            <p className="text-sm text-slate-400 font-medium">{agent.role_description ?? agent.role ?? 'AI Agent'}</p>
+          </div>
+        </div>
+        <button
+          onClick={() => router.push(`/agents/${agent.id}`)}
+          className="p-2 text-slate-500 hover:text-white bg-transparent hover:bg-slate-800 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+          title="Agent settings"
+        >
+          <Settings className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Specs */}
+      <div className="space-y-3 p-4 bg-slate-950/50 rounded-xl border border-white/5 mb-5 flex-1">
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-slate-500 font-medium">Domain</span>
+          <span className="px-2.5 py-1 bg-slate-800 border border-slate-700 rounded-md text-xs font-semibold capitalize text-slate-300">
+            {agent.domain || 'General'}
+          </span>
+        </div>
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-slate-500 font-medium">Status</span>
+          <span
+            className={`px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wide border ${
+              isWorking
+                ? 'bg-blue-500/10 text-blue-400 border-blue-500/30'
+                : agent.status === 'ERROR'
+                ? 'bg-red-500/10 text-red-400 border-red-500/30'
+                : agent.status === 'OFFLINE'
+                ? 'bg-slate-800 text-slate-500 border-transparent'
+                : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+            }`}
+          >
+            {agent.status}
+          </span>
+        </div>
+        {agent.current_task && (
+          <div className="pt-2 mt-2 border-t border-slate-800/50">
+            <span className="text-xs text-slate-500 font-medium uppercase block mb-1">Active Workflow</span>
+            <span className="text-sm text-blue-300 truncate block font-mono bg-blue-500/5 px-2 py-1 rounded border border-blue-500/10">
+              {agent.current_task.title}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Actions */}
+      <div className="flex gap-3">
+        <button
+          onClick={() => onAssign(agent)}
+          disabled={isWorking}
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+            isWorking
+              ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+              : 'bg-blue-600 hover:bg-blue-500 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)]'
+          }`}
+        >
+          <Zap className="w-4 h-4" />
+          Assign
+        </button>
+        <button
+          onClick={() => router.push('/chat')}
+          className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 hover:border-slate-500 rounded-xl text-sm font-semibold transition-all"
+        >
+          Interact
+          <ArrowRight className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AgentsPage() {
   const [isWizardOpen, setIsWizardOpen] = useState(false);
+  const [assignTarget, setAssignTarget] = useState<Agent | null>(null);
   const { isLoading, error, refetch } = useAgents();
   const agents = useAgentsStore((s) => Object.values(s.agents));
   const createAgent = useCreateAgent();
@@ -19,22 +286,20 @@ export default function AgentsPage() {
         toast.success('Agent created', `${agentData.name} has been added to your team`);
         setIsWizardOpen(false);
       },
-      onError: (error) => {
-        toast.error('Failed to create agent', error.message);
-      },
+      onError: (err) => toast.error('Failed to create agent', err.message),
     });
   };
 
   if (isLoading) return <PageLoader />;
   if (error) return <ErrorMessage title="Failed to load agents" message={error.message} onRetry={() => refetch()} />;
 
-  const activeAgents = agents.filter((a) => a.state === 'working').length;
-  const idleAgents = agents.filter((a) => a.state === 'idle').length;
+  const activeAgents = agents.filter((a) => a.status === 'WORKING').length;
+  const idleAgents = agents.filter((a) => a.status === 'IDLE').length;
   const totalDomains = new Set(agents.map((a) => a.domain)).size;
 
   return (
     <div className="h-full flex flex-col p-6 bg-slate-950 text-slate-200 relative overflow-hidden">
-      {/* Premium Background Elements */}
+      {/* Background */}
       <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-blue-600/10 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-0 left-0 w-[800px] h-[800px] bg-indigo-600/10 rounded-full blur-[150px] pointer-events-none" />
 
@@ -50,22 +315,21 @@ export default function AgentsPage() {
           onClick={() => setIsWizardOpen(true)}
           className="group relative flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold text-white transition-all shadow-[0_0_20px_rgba(37,99,235,0.4)] hover:shadow-[0_0_30px_rgba(37,99,235,0.6)] hover:-translate-y-0.5"
         >
-          <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-400 to-indigo-500 opacity-0 group-hover:opacity-20 transition-opacity" />
           <Plus className="w-5 h-5" />
           Deploy New Agent
         </button>
       </div>
 
-      {/* Stats Grid */}
+      {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8 relative z-10">
-        <StatCard label="Total Agents" value={agents.length} icon={<User className="w-6 h-6" />} color="blue" />
-        <StatCard label="Active Nodes" value={activeAgents} icon={<Activity className="w-6 h-6" />} color="emerald" pulse />
-        <StatCard label="Idle Nodes" value={idleAgents} icon={<Cpu className="w-6 h-6" />} color="slate" />
-        <StatCard label="Active Domains" value={totalDomains} icon={<Users className="w-6 h-6" />} color="purple" />
+        <StatCard label="Total Agents"    value={agents.length}  icon={<User className="w-6 h-6" />}     color="blue" />
+        <StatCard label="Active Nodes"    value={activeAgents}   icon={<Activity className="w-6 h-6" />} color="emerald" pulse />
+        <StatCard label="Idle Nodes"      value={idleAgents}     icon={<Cpu className="w-6 h-6" />}      color="slate" />
+        <StatCard label="Active Domains"  value={totalDomains}   icon={<Users className="w-6 h-6" />}    color="purple" />
       </div>
 
-      {/* Agents Grid */}
-      <div className="flex-1 overflow-y-auto relative z-10 pr-2 custom-scrollbar">
+      {/* Grid */}
+      <div className="flex-1 overflow-y-auto relative z-10 pr-2">
         {agents.length === 0 ? (
           <EmptyState
             icon={<ShieldCheck className="w-12 h-12 text-blue-500/50" />}
@@ -84,105 +348,17 @@ export default function AgentsPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-6">
             {agents.map((agent) => (
-              <AgentCard key={agent.id} agent={agent} />
+              <AgentCard key={agent.id} agent={agent} onAssign={setAssignTarget} />
             ))}
           </div>
         )}
       </div>
 
       <AgentWizard isOpen={isWizardOpen} onClose={() => setIsWizardOpen(false)} onCreate={handleCreateAgent} />
-    </div>
-  );
-}
 
-function StatCard({ label, value, icon, color = 'blue', pulse = false }: any) {
-  const colorMap: any = {
-    blue: 'from-blue-500/20 to-blue-600/5 border-blue-500/30 text-blue-400',
-    emerald: 'from-emerald-500/20 to-emerald-600/5 border-emerald-500/30 text-emerald-400',
-    slate: 'from-slate-500/20 to-slate-600/5 border-slate-500/30 text-slate-400',
-    purple: 'from-purple-500/20 to-purple-600/5 border-purple-500/30 text-purple-400',
-  };
-
-  return (
-    <div className={`relative p-6 rounded-2xl bg-gradient-to-br border backdrop-blur-sm ${colorMap[color]} shadow-lg overflow-hidden group hover:border-opacity-50 transition-all`}>
-      <div className="flex items-center justify-between mb-4">
-        <span className="text-slate-300 font-medium uppercase tracking-wider text-xs">{label}</span>
-        <div className={`p-2 rounded-xl bg-slate-950/50 shadow-inner ${pulse ? 'animate-pulse' : ''}`}>
-          {icon}
-        </div>
-      </div>
-      <div className="flex items-end gap-3">
-        <p className="text-4xl font-extrabold text-white">{value}</p>
-        <div className="h-2 flex-1 bg-slate-900 rounded-full overflow-hidden mb-1.5 opacity-50">
-          <div className={`h-full w-full bg-current rounded-full ${pulse ? 'opacity-100' : 'opacity-30'}`} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function AgentCard({ agent }: any) {
-  const isWorking = agent.state === 'working';
-  
-  return (
-    <div className={`group relative p-5 bg-slate-900/60 backdrop-blur-md border rounded-2xl transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl flex flex-col justify-between ${isWorking ? 'border-blue-500/50 shadow-[0_5px_30px_rgba(59,130,246,0.15)]' : 'border-white/10 hover:border-white/20'}`}>
-      {/* Top Section */}
-      <div className="flex items-start justify-between mb-5">
-        <div className="flex items-center gap-4">
-          <div className="relative">
-            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-2xl shadow-inner border border-white/10 ${isWorking ? 'bg-gradient-to-br from-blue-500 to-indigo-600' : 'bg-slate-800'}`}>
-              {agent.name.charAt(0).toUpperCase()}
-            </div>
-            {isWorking && (
-              <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-4 w-4 bg-emerald-500 border-2 border-slate-900"></span>
-              </span>
-            )}
-          </div>
-          <div>
-            <h3 className="font-bold text-lg text-white group-hover:text-blue-400 transition-colors">{agent.name}</h3>
-            <p className="text-sm text-slate-400 font-medium">{agent.role}</p>
-          </div>
-        </div>
-        <button className="p-2 text-slate-500 hover:text-white bg-slate-800/0 hover:bg-slate-800 rounded-lg transition-all opacity-0 group-hover:opacity-100">
-          <Settings className="w-4 h-4" />
-        </button>
-      </div>
-
-      {/* Middle Specs */}
-      <div className="space-y-3 p-4 bg-slate-950/50 rounded-xl border border-white/5 mb-5 flex-1">
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-slate-500 font-medium">Domain</span>
-          <span className="px-2.5 py-1 bg-slate-800 border border-slate-700 rounded-md text-xs font-semibold capitalize text-slate-300">{agent.domain || 'General'}</span>
-        </div>
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-slate-500 font-medium">Status</span>
-          <span className={`px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wide border ${isWorking ? 'bg-blue-500/10 text-blue-400 border-blue-500/30' : 'bg-slate-800 text-slate-400 border-transparent'}`}>
-            {agent.state}
-          </span>
-        </div>
-        {agent.current_task && (
-          <div className="pt-2 mt-2 border-t border-slate-800/50">
-            <span className="text-xs text-slate-500 font-medium uppercase block mb-1">Active Workflow</span>
-            <span className="text-sm text-blue-300 truncate block font-mono bg-blue-500/5 px-2 py-1 rounded border border-blue-500/10">
-              {agent.current_task.title}
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* Bottom Actions */}
-      <div className="flex gap-3">
-        <button className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${isWorking ? 'bg-slate-800 text-slate-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)]'}`}>
-          <Zap className="w-4 h-4" />
-          Assign
-        </button>
-        <button className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 hover:border-slate-500 rounded-xl text-sm font-semibold transition-all">
-          Interact
-          <ArrowRight className="w-4 h-4" />
-        </button>
-      </div>
+      {assignTarget && (
+        <AssignTaskModal agent={assignTarget} onClose={() => setAssignTarget(null)} />
+      )}
     </div>
   );
 }

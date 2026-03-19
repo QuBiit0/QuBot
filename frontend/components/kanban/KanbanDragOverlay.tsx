@@ -44,10 +44,10 @@ export function KanbanDragOverlay({ task }: KanbanDragOverlayProps) {
       {/* Footer */}
       <div className="flex items-center justify-between text-xs text-slate-500">
         <div className="flex items-center gap-2">
-          {task.assigned_to && (
+          {(task.assigned_to?.name ?? task.assigned_agent_name) && (
             <div className="flex items-center gap-1">
               <User className="w-3 h-3" />
-              <span className="truncate max-w-[80px]">{task.assigned_to.name}</span>
+              <span className="truncate max-w-[80px]">{task.assigned_to?.name ?? task.assigned_agent_name}</span>
             </div>
           )}
         </div>

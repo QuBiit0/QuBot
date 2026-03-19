@@ -88,7 +88,7 @@ export function AgentSpeechBubble({ agent, x, y, isVisible }: AgentSpeechBubbleP
           cornerRadius={[8, 8, 0, 0]}
         />
         <Text
-          text={agent.role.toUpperCase()}
+          text={(agent.role_description ?? agent.role ?? 'Agent').toUpperCase()}
           fontSize={9}
           fontFamily="system-ui, sans-serif"
           fontStyle="bold"

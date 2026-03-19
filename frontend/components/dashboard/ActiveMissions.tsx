@@ -1,5 +1,6 @@
 'use client';
 import React from 'react';
+import Link from 'next/link';
 import { useTasksStore } from '@/store/tasks.store';
 import { Task, TaskStatus, PRIORITY_CONFIG, STATUS_CONFIG } from '@/types';
 import { useAgentsStore } from '@/store/agents.store';
@@ -106,16 +107,27 @@ export default function ActiveMissions() {
           <div className="flex flex-col items-center justify-center py-6 gap-1.5">
             <span style={{ fontSize: 22 }}>🚀</span>
             <span style={{ color: '#484f58', fontSize: 11 }}>No missions yet</span>
-            <span style={{ color: '#2d4060', fontSize: 10 }}>Use the chat to create tasks</span>
+            <Link href="/tasks" className="text-[10px] hover:underline" style={{ color: '#2d5080' }}>
+              Go to Tasks board
+            </Link>
           </div>
         ) : (
-          sorted.map(task => (
-            <MissionCard
-              key={task.id}
-              task={task}
-              agentName={task.assigned_agent_id ? agents[task.assigned_agent_id]?.name : undefined}
-            />
-          ))
+          <>
+            {sorted.map(task => (
+              <MissionCard
+                key={task.id}
+                task={task}
+                agentName={task.assigned_agent_id ? agents[task.assigned_agent_id]?.name : undefined}
+              />
+            ))}
+            <Link
+              href="/tasks"
+              className="block mx-3 mt-1 py-1.5 text-center text-[10px] font-medium rounded-lg transition-colors"
+              style={{ color: '#3b6fff', background: 'rgba(59,111,255,0.05)' }}
+            >
+              View all tasks →
+            </Link>
+          </>
         )}
       </div>
     </div>

@@ -20,10 +20,11 @@ export function useTasks() {
         return response.data;
       } catch (error) {
         setError(error instanceof Error ? error.message : 'Unknown error');
+        setLoading(false);
         throw error;
       }
     },
-    refetchInterval: 30000,
+    refetchInterval: 10000, // WS pushes real-time; polling is a safety net
   });
 }
 
@@ -95,6 +96,35 @@ export function useUpdateTaskStatus() {
       if (context?.previousTask) {
         updateTask(variables.id, context.previousTask as Task);
       }
+    },
+  });
+}
+
+export function useRunTask() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => api.runTask(id),
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['task-detail', id] });
+    },
+  });
+}
+
+export function useCancelTask() {
+  const queryClient = useQueryClient();
+  const updateTask = useTasksStore((s) => s.updateTask);
+
+  return useMutation({
+    mutationFn: (id: string) => api.cancelTask(id),
+    onMutate: async (id) => {
+      // Optimistic update
+      updateTask(id, { status: 'FAILED' });
+    },
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['task-detail', id] });
     },
   });
 }

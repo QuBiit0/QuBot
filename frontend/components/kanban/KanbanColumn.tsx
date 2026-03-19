@@ -11,9 +11,10 @@ interface KanbanColumnProps {
   title: string;
   color: string;
   tasks: Task[];
+  onDetail?: (task: Task) => void;
 }
 
-export function KanbanColumn({ id, title, color, tasks }: KanbanColumnProps) {
+export function KanbanColumn({ id, title, color, tasks, onDetail }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id });
 
   return (
@@ -37,16 +38,16 @@ export function KanbanColumn({ id, title, color, tasks }: KanbanColumnProps) {
       </div>
 
       {/* Column Content */}
-      <div className="flex-1 p-3 space-y-2 min-h-[200px]">
+      <div className="flex-1 overflow-y-auto p-3 space-y-2 min-h-[200px] max-h-[calc(100vh-220px)]">
         <SortableContext
           items={tasks.map((t) => t.id)}
           strategy={verticalListSortingStrategy}
         >
           {tasks.map((task) => (
-            <KanbanCard key={task.id} task={task} />
+            <KanbanCard key={task.id} task={task} onDetail={onDetail} />
           ))}
         </SortableContext>
-        
+
         {tasks.length === 0 && (
           <div className="text-center py-8 text-slate-500 text-sm">
             Drop tasks here

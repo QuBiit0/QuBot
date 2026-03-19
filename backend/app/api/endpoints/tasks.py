@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...core.security import get_current_user
 from ...database import get_session
 from ...models.enums import PriorityEnum, TaskEventTypeEnum, TaskStatusEnum
+from ...models.task import Task
 from ...models.user import User
 from ...schemas.tasks import (
     SubtaskCreateRequest,
@@ -19,6 +20,7 @@ from ...schemas.tasks import (
     TaskStatusUpdateRequest,
 )
 from ...services import TaskService
+from ...services.task_service import serialize_task
 
 router = APIRouter()
 
@@ -46,7 +48,7 @@ async def list_tasks(
     )
 
     return {
-        "data": tasks,
+        "data": [serialize_task(t) for t in tasks],
         "meta": {
             "page": skip // limit + 1,
             "limit": limit,
@@ -75,7 +77,7 @@ async def create_task(
         created_by=str(current_user.id),
     )
 
-    return {"data": task}
+    return {"data": serialize_task(task)}
 
 
 @router.get("/tasks/{task_id}", response_model=None)
@@ -93,13 +95,75 @@ async def get_task(
     subtasks = await service.get_subtasks(task_id)
     events = await service.get_task_events(task_id)
 
-    return {
-        "data": {
-            **task.__dict__,
-            "subtasks": subtasks,
-            "events": events,
-        },
-    }
+    task_dict = serialize_task(task)
+    task_dict["subtasks"] = [serialize_task(s) for s in subtasks]
+    task_dict["events"] = [e.model_dump() for e in events]
+
+    return {"data": task_dict}
+
+
+@router.post("/tasks/{task_id}/run", response_model=None)
+async def run_task(
+    task_id: UUID,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Submit a task to the worker queue for execution.
+
+    The task must be assigned to an agent first.
+    If the task is in BACKLOG, it will be moved to IN_PROGRESS automatically.
+    """
+    service = TaskService(session)
+
+    task = await service.get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    if not task.assigned_agent_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Task must be assigned to an agent before it can be run",
+        )
+
+    try:
+        from ...worker import submit_task_to_queue
+
+        msg_id = await submit_task_to_queue(task_id)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Worker queue unavailable: {exc}",
+        ) from exc
+
+    # Move to IN_PROGRESS if still in BACKLOG (skip queue re-submit inside service)
+    if task.status == TaskStatusEnum.BACKLOG:
+        task.status = TaskStatusEnum.IN_PROGRESS
+        await session.commit()
+        await service.create_task_event(
+            task_id=task_id,
+            event_type=TaskEventTypeEnum.STARTED,
+            payload={"triggered_by": str(current_user.id)},
+        )
+
+    return {"data": {"queued": True, "msg_id": str(msg_id)}}
+
+
+@router.post("/tasks/{task_id}/cancel", response_model=None)
+async def cancel_task(
+    task_id: UUID,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Cancel a running task (moves it to FAILED and resets the agent to IDLE)."""
+    from ...services.execution_service import ExecutionService
+
+    svc = ExecutionService(session)
+    cancelled = await svc.cancel_execution(task_id)
+    if not cancelled:
+        raise HTTPException(status_code=404, detail="Task not found or not in-progress")
+
+    task = await TaskService(session).get_task(task_id)
+    return {"data": serialize_task(task) if task else None}
 
 
 @router.patch("/tasks/{task_id}/status", response_model=None)
@@ -121,7 +185,7 @@ async def update_task_status(
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    return {"data": task}
+    return {"data": serialize_task(task)}
 
 
 @router.patch("/tasks/{task_id}/assign", response_model=None)
@@ -142,7 +206,7 @@ async def assign_task(
     if not task:
         raise HTTPException(status_code=404, detail="Task or agent not found")
 
-    return {"data": task}
+    return {"data": serialize_task(task)}
 
 
 @router.post("/tasks/{task_id}/events", response_model=None, status_code=201)

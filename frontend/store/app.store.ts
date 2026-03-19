@@ -10,8 +10,9 @@ export interface ActivityEvent {
   severity?: 'info' | 'success' | 'warning' | 'error';
   status?: 'done' | 'completed' | 'working' | 'in_progress' | 'planning' | 'pending' | 'created' | 'assigned' | 'failed' | 'error' | 'user' | 'idle' | 'offline';
   agent_id?: string | number;
-  agent_name?: string;
+  /** @deprecated use agent_name */
   agentName?: string;
+  agent_name?: string;
   metadata?: Record<string, unknown>;
 }
 

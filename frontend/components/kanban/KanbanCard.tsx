@@ -4,10 +4,11 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Task } from '@/types';
 import { cn, formatTime } from '@/lib/utils';
-import { Clock, User } from 'lucide-react';
+import { Clock, User, ExternalLink } from 'lucide-react';
 
 interface KanbanCardProps {
   task: Task;
+  onDetail?: (task: Task) => void;
 }
 
 const priorityColors: Record<string, string> = {
@@ -24,7 +25,7 @@ const priorityLabels: Record<string, string> = {
   LOW: 'Low',
 };
 
-export function KanbanCard({ task }: KanbanCardProps) {
+export function KanbanCard({ task, onDetail }: KanbanCardProps) {
   const {
     attributes,
     listeners,
@@ -46,7 +47,7 @@ export function KanbanCard({ task }: KanbanCardProps) {
       {...attributes}
       {...listeners}
       className={cn(
-        'p-4 rounded-lg border cursor-move transition-all hover:shadow-lg',
+        'group p-4 rounded-lg border cursor-move transition-all hover:shadow-lg',
         isDragging
           ? 'opacity-50 rotate-3 scale-105 bg-slate-800 border-blue-500'
           : 'bg-slate-800 border-slate-700 hover:border-slate-600'
@@ -54,14 +55,23 @@ export function KanbanCard({ task }: KanbanCardProps) {
     >
       {/* Header */}
       <div className="flex items-start justify-between gap-2 mb-2">
-        <h4 className="font-medium text-sm leading-tight">{task.title}</h4>
-        <div
-          className={cn(
-            'w-2 h-2 rounded-full flex-shrink-0',
-            priorityColors[task.priority]
+        <h4 className="font-medium text-sm leading-tight flex-1">{task.title}</h4>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <div
+            className={cn('w-2 h-2 rounded-full', priorityColors[task.priority])}
+            title={priorityLabels[task.priority]}
+          />
+          {onDetail && (
+            <button
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); onDetail(task); }}
+              className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-white/10 text-slate-500 hover:text-white transition-all"
+              title="View details"
+            >
+              <ExternalLink className="w-3 h-3" />
+            </button>
           )}
-          title={priorityLabels[task.priority]}
-        />
+        </div>
       </div>
 
       {/* Description */}
@@ -74,10 +84,10 @@ export function KanbanCard({ task }: KanbanCardProps) {
       {/* Footer */}
       <div className="flex items-center justify-between text-xs text-slate-500">
         <div className="flex items-center gap-2">
-          {task.assigned_to && (
+          {(task.assigned_to?.name ?? task.assigned_agent_name) && (
             <div className="flex items-center gap-1">
               <User className="w-3 h-3" />
-              <span className="truncate max-w-[80px]">{task.assigned_to.name}</span>
+              <span className="truncate max-w-[80px]">{task.assigned_to?.name ?? task.assigned_agent_name}</span>
             </div>
           )}
         </div>

@@ -4,14 +4,65 @@ Task Service - Business logic for task management
 
 import asyncio
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
+import structlog
 from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from sqlmodel import desc, select
 
 from ..models.enums import PriorityEnum, TaskEventTypeEnum, TaskStatusEnum
 from ..models.task import Task, TaskEvent
+
+logger = structlog.get_logger(__name__)
+
+
+async def _broadcast_task_event(event_type: str, payload: dict[str, Any]) -> None:
+    """Fire-and-forget realtime broadcast. Never raises."""
+    try:
+        from ..core.realtime import EventType, RealtimeEvent, get_connection_manager
+
+        et = EventType(event_type)
+        event = RealtimeEvent.create(event_type=et, payload=payload)
+        await get_connection_manager().publish_event(event)
+    except Exception as exc:
+        logger.debug("broadcast_task_event_failed", event=event_type, error=str(exc))
+
+
+def serialize_task(task: Task) -> dict[str, Any]:
+    """
+    Convert a Task (with optionally loaded assigned_agent relationship) into
+    a frontend-ready dict that includes the nested ``assigned_to`` object.
+    """
+    d = task.model_dump()
+    agent = getattr(task, "assigned_agent", None)
+    if agent is not None:
+        d["assigned_to"] = {"id": str(agent.id), "name": agent.name}
+        d["assigned_agent_name"] = agent.name
+    else:
+        d["assigned_to"] = None
+        d["assigned_agent_name"] = None
+    return d
+
+
+async def _enqueue_task(task_id: UUID) -> None:
+    """
+    Submit a task to the Redis Streams worker queue.
+    Silently logs on failure so the API call still succeeds if Redis is down.
+    """
+    try:
+        from ..worker import submit_task_to_queue
+
+        msg_id = await submit_task_to_queue(task_id)
+        logger.info("task_enqueued", task_id=str(task_id), msg_id=str(msg_id))
+    except Exception as exc:
+        logger.warning(
+            "task_enqueue_failed",
+            task_id=str(task_id),
+            error=str(exc),
+        )
 
 
 class TaskService:
@@ -54,7 +105,7 @@ class TaskService:
             },
         )
 
-        # If assigned, create ASSIGNED event
+        # If assigned, create ASSIGNED event and queue for execution
         if assigned_agent_id:
             await self.create_task_event(
                 task_id=task.id,
@@ -64,12 +115,17 @@ class TaskService:
             )
             task.status = TaskStatusEnum.IN_PROGRESS
             await self.session.commit()
+            await _enqueue_task(task.id)
 
         return task
 
     async def get_task(self, task_id: UUID) -> Task | None:
-        """Get task by ID"""
-        result = await self.session.execute(select(Task).where(Task.id == task_id))
+        """Get task by ID (with assigned_agent eagerly loaded)"""
+        result = await self.session.execute(
+            select(Task)
+            .options(selectinload(Task.assigned_agent))
+            .where(Task.id == task_id)
+        )
         return result.scalar_one_or_none()
 
     async def get_tasks(
@@ -82,7 +138,7 @@ class TaskService:
         limit: int = 100,
     ) -> list[Task]:
         """Get tasks with optional filters"""
-        query = select(Task)
+        query = select(Task).options(selectinload(Task.assigned_agent))
 
         if status:
             query = query.where(Task.status == status)
@@ -181,7 +237,22 @@ class TaskService:
                 agent_id=agent_id,
             )
 
+        # Queue task for execution when moved to IN_PROGRESS
+        if new_status == TaskStatusEnum.IN_PROGRESS and task.assigned_agent_id:
+            await _enqueue_task(task_id)
+
         await self.session.refresh(task)
+
+        # Broadcast real-time update
+        ws_event = {
+            TaskStatusEnum.DONE: "task.completed",
+            TaskStatusEnum.FAILED: "task.failed",
+        }.get(new_status, "task.updated")
+        await _broadcast_task_event(ws_event, {
+            "task_id": str(task_id),
+            "status": new_status.value,
+        })
+
         return task
 
     async def assign_task(
@@ -207,7 +278,18 @@ class TaskService:
             agent_id=agent_id,
         )
 
+        # Submit to execution queue
+        await _enqueue_task(task_id)
+
         await self.session.refresh(task)
+
+        # Broadcast assignment
+        await _broadcast_task_event("task.assigned", {
+            "task_id": str(task_id),
+            "agent_id": str(agent_id),
+            "status": TaskStatusEnum.IN_PROGRESS.value,
+        })
+
         return task
 
     async def create_task_event(

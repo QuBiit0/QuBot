@@ -1,8 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { WorkflowBuilderVisual } from '@/components/workflow/WorkflowBuilderVisual';
+import dynamic from 'next/dynamic';
 import { CoworkingCanvas } from '@/components/coworking/CoworkingCanvas';
+
+const WorkflowBuilderVisual = dynamic(
+  () => import('@/components/workflow/WorkflowBuilderVisual').then((m) => m.WorkflowBuilderVisual),
+  { ssr: false }
+);
 import { useAgents } from '@/hooks/useAgents';
 import { useTasks } from '@/hooks/useTasks';
 import { Network, Activity, Cpu, Grid } from 'lucide-react';

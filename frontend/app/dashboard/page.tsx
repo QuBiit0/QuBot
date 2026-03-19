@@ -5,6 +5,7 @@ import { Plus, Users, Activity } from 'lucide-react';
 import Link from 'next/link';
 import MetricCards from '@/components/dashboard/MetricCards';
 import ActiveMissions from '@/components/dashboard/ActiveMissions';
+import { ActivityPanel } from '@/components/layout';
 import { useAgents } from '@/hooks/useAgents';
 import { useTasks } from '@/hooks/useTasks';
 import { useAppStore } from '@/store/app.store';
@@ -142,6 +143,9 @@ export default function DashboardPage() {
 
           <ActiveMissions />
         </div>
+
+        {/* Far Right: Activity Feed */}
+        <ActivityPanel />
       </div>
     </div>
   );

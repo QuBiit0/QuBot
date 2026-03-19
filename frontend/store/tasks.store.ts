@@ -4,23 +4,23 @@ import { create } from 'zustand';
 import { Task, TaskStatus } from '@/types';
 
 interface TasksState {
-  tasks: Record<string | number, Task>;
-  selectedTask: string | number | null;
+  tasks: Record<string, Task>;
+  selectedTask: string | null;
   isLoading: boolean;
   error: string | null;
-  
+
   // Actions
   setTasks: (tasks: Task[]) => void;
   addTask: (task: Task) => void;
-  updateTask: (id: string | number, updates: Partial<Task>) => void;
-  removeTask: (id: string | number) => void;
-  moveTask: (taskId: string | number, newStatus: TaskStatus) => void;
-  selectTask: (id: string | number | null) => void;
+  updateTask: (id: string, updates: Partial<Task>) => void;
+  removeTask: (id: string) => void;
+  moveTask: (taskId: string, newStatus: TaskStatus) => void;
+  selectTask: (id: string | null) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
 }
 
-export const useTasksStore = create<TasksState>((set, get) => ({
+export const useTasksStore = create<TasksState>((set) => ({
   tasks: {},
   selectedTask: null,
   isLoading: false,

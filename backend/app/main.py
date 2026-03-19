@@ -79,6 +79,7 @@ from .api.endpoints.tools import router as tools_router
 from .api.endpoints.websocket import router as websocket_router
 from .api.skills import router as skills_router
 from .api.endpoints.channels import router as channels_router
+from .api.endpoints.workflows import router as workflows_router
 
 
 async def _bootstrap_mcp_servers() -> None:
@@ -382,6 +383,7 @@ app.include_router(config_router, prefix=settings.API_V1_STR)
 app.include_router(integrations_router, prefix=settings.API_V1_STR)
 app.include_router(skills_router, prefix=settings.API_V1_STR)
 app.include_router(channels_router, prefix=settings.API_V1_STR)
+app.include_router(workflows_router, prefix=settings.API_V1_STR)
 
 
 # Root endpoint

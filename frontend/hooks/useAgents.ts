@@ -23,7 +23,7 @@ export function useAgents() {
         throw error;
       }
     },
-    refetchInterval: 30000, // Refetch every 30 seconds
+    refetchInterval: 10000, // WS pushes real-time; polling is a safety net
   });
 }
 

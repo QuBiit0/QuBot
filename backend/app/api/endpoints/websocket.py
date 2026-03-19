@@ -9,8 +9,30 @@ from ...core.realtime import (
     RealtimeEvent,
     get_connection_manager,
 )
+from ...core.security import decode_token
 
 router = APIRouter()
+
+# WebSocket close codes
+_WS_UNAUTHORIZED = 4001
+
+
+async def _validate_ws_token(websocket: WebSocket, token: str | None) -> bool:
+    """
+    Validate a JWT token supplied via WebSocket query param.
+
+    Returns True if valid (or no token provided — open in dev).
+    Closes the WebSocket and returns False if the token is invalid.
+    """
+    if not token:
+        return True  # unauthenticated connections allowed (dev / public dashboards)
+
+    payload = decode_token(token)
+    if payload is None or payload.get("type") != "access":
+        await websocket.close(code=_WS_UNAUTHORIZED, reason="Invalid or expired token")
+        return False
+
+    return True
 
 
 @router.websocket("/ws")
@@ -22,7 +44,7 @@ async def websocket_endpoint(
     WebSocket endpoint for real-time updates.
 
     Query params:
-    - token: Optional authentication token
+    - token: Optional JWT access token for authenticated connections
 
     Events sent to client:
     - task.created, task.updated, task.completed, task.failed
@@ -35,6 +57,9 @@ async def websocket_endpoint(
     Client can subscribe to specific events by sending:
     {"action": "subscribe", "events": ["task.updated", "agent.status_changed"]}
     """
+    if not await _validate_ws_token(websocket, token):
+        return
+
     manager = get_connection_manager()
 
     # Accept connection
@@ -120,6 +145,9 @@ async def agent_websocket(
 
     Only receives events related to the specified agent.
     """
+    if not await _validate_ws_token(websocket, token):
+        return
+
     manager = get_connection_manager()
     await manager.connect(websocket)
 
@@ -162,6 +190,9 @@ async def task_websocket(
 
     Only receives events related to the specified task.
     """
+    if not await _validate_ws_token(websocket, token):
+        return
+
     manager = get_connection_manager()
     await manager.connect(websocket)
 

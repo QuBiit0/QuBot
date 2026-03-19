@@ -15,12 +15,13 @@ export interface AvatarConfig {
 }
 
 export interface Agent {
-  id: string | number;
+  id: string;
   name: string;
-  role: string;
+  role?: string;
+  role_description?: string;
   domain?: string;
   description?: string;
-  state: 'idle' | 'working' | 'thinking' | 'talking';
+  state?: 'idle' | 'working' | 'thinking' | 'talking';
   status: AgentStatus;
   current_task?: {
     id: string;
@@ -66,7 +67,7 @@ export interface ActivityEvent {
   type: string;
   message: string;
   severity: 'info' | 'success' | 'warning' | 'error';
-  agent_id?: string | number;
+  agent_id?: string;
   agent_name?: string;
   metadata?: Record<string, unknown>;
 }
@@ -91,7 +92,7 @@ export interface ApiError {
 // WebSocket types
 export interface WebSocketMessage {
   type: 'AGENT_UPDATE' | 'TASK_UPDATE' | 'ACTIVITY_EVENT' | 'METRICS_UPDATE' | 'PING' | 'PONG';
-  id?: string | number;
+  id?: string;
   payload?: unknown;
   timestamp?: string;
 }

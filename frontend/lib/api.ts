@@ -299,6 +299,14 @@ export const tasksApi = {
     });
   },
 
+  run: async (id: string): Promise<ApiResponse<{ queued: boolean; msg_id: string }>> => {
+    return fetchWithAuth(`${API_BASE_URL}/tasks/${id}/run`, { method: 'POST' });
+  },
+
+  cancel: async (id: string): Promise<ApiResponse<unknown>> => {
+    return fetchWithAuth(`${API_BASE_URL}/tasks/${id}/cancel`, { method: 'POST' });
+  },
+
   delete: async (id: string): Promise<void> => {
     return fetchWithAuth<void>(`${API_BASE_URL}/tasks/${id}`, {
       method: 'DELETE',
@@ -339,11 +347,98 @@ async function del(endpoint: string): Promise<void> {
   });
 }
 
+// --- Workflows API ---
+
+export interface WorkflowNode {
+  id: string;
+  type: string;
+  position: { x: number; y: number };
+  data: Record<string, unknown>;
+}
+
+export interface WorkflowEdge {
+  id: string;
+  source: string;
+  target: string;
+  animated?: boolean;
+}
+
+export interface Workflow {
+  id: string;
+  name: string;
+  description: string;
+  nodes: WorkflowNode[];
+  edges: WorkflowEdge[];
+  is_active: boolean;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export const workflowsApi = {
+  getAll: (page = 1, limit = 20) =>
+    fetchWithAuth<ApiResponse<Workflow[]>>(
+      `${API_BASE_URL}/workflows?skip=${(page - 1) * limit}&limit=${limit}`
+    ),
+  getById: (id: string) =>
+    fetchWithAuth<ApiResponse<Workflow>>(`${API_BASE_URL}/workflows/${id}`),
+  create: (data: Partial<Workflow>) =>
+    fetchWithAuth<ApiResponse<Workflow>>(`${API_BASE_URL}/workflows`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  update: (id: string, data: Partial<Workflow>) =>
+    fetchWithAuth<ApiResponse<Workflow>>(`${API_BASE_URL}/workflows/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+  delete: (id: string) =>
+    fetchWithAuth<void>(`${API_BASE_URL}/workflows/${id}`, { method: 'DELETE' }),
+};
+
+// --- Agent Classes API ---
+
+export interface AgentClass {
+  id: string;
+  name: string;
+  description: string;
+  domain: string;
+  icon?: string;
+  is_custom?: boolean;
+  default_avatar_config?: Record<string, unknown>;
+  created_at?: string;
+}
+
+export const agentClassesApi = {
+  getAll: (domain?: string) =>
+    fetchWithAuth<ApiResponse<AgentClass[]>>(
+      `${API_BASE_URL}/agent-classes${domain ? `?domain=${domain}` : ''}`
+    ),
+};
+
+// --- Available Tools API ---
+
+export interface AvailableTool {
+  name: string;
+  description: string;
+  type: string;
+  category?: string;
+  is_dangerous?: boolean;
+  is_enabled?: boolean;
+  input_schema?: Record<string, unknown>;
+}
+
+export const availableToolsApi = {
+  getAll: () =>
+    fetchWithAuth<{ tools: AvailableTool[] }>(`${API_BASE_URL}/tools/available`),
+};
+
 // --- Unified export ---
 
 export const api = {
   ...agentsApi,
   ...tasksApi,
+  ...workflowsApi,
   getAgents: agentsApi.getAll,
   getAgent: agentsApi.getById,
   createAgent: agentsApi.create,
@@ -354,6 +449,8 @@ export const api = {
   createTask: tasksApi.create,
   updateTask: tasksApi.update,
   updateTaskStatus: tasksApi.updateStatus,
+  runTask: tasksApi.run,
+  cancelTask: tasksApi.cancel,
   deleteTask: tasksApi.delete,
   get,
   post,

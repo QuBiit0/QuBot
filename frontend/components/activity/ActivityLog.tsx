@@ -50,8 +50,8 @@ function getAgentColor(name: string): string {
 }
 
 function LogRow({ event, isNew }: { event: ActivityEvent; isNew?: boolean }) {
-  const cfg = STATUS_CFG[event.status ?? 'working'] ?? STATUS_CFG.working;
-  const agentColor = getAgentColor(event.agentName ?? '');
+  const cfg = STATUS_CFG[event.status ?? 'working'] ?? STATUS_CFG['working']!;
+  const agentColor = getAgentColor(event.agentName ?? event.agent_name ?? '');
   const [expanded, setExpanded] = useState(false);
   const isLong = event.message.length > 60;
 
@@ -91,7 +91,7 @@ function LogRow({ event, isNew }: { event: ActivityEvent; isNew?: boolean }) {
             className="px-1.5 rounded text-[9px] font-semibold flex-shrink-0"
             style={{ background: `${agentColor}18`, color: agentColor, border: `1px solid ${agentColor}30` }}
           >
-            {event.agentName}
+            {event.agentName ?? event.agent_name}
           </span>
         </div>
         <p
@@ -162,7 +162,7 @@ export default function ActivityLog() {
         <div className="flex items-center gap-2">
           {/* Mini status breakdown */}
           {statusCounts.done && (
-            <span style={{ fontSize: '10px', color: STATUS_CFG.done.dot }}>
+            <span style={{ fontSize: '10px', color: STATUS_CFG['done']!.dot }}>
               {statusCounts.done} done
             </span>
           )}

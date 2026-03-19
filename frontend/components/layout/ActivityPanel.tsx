@@ -1,7 +1,6 @@
 'use client';
 
 import { useActivityStore } from '@/store/activity.store';
-import { cn } from '@/lib/utils';
 import { Pause, Play, Trash2, Radio } from 'lucide-react';
 
 const severityColors = {

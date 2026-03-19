@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import SQLModel
 
 from ...config import settings
 from ...core.rate_limit import limiter
@@ -303,11 +304,35 @@ async def update_current_user(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    """Update current user profile"""
+    """Update current user profile (query params)"""
     if full_name is not None:
         current_user.full_name = full_name
     if avatar_url is not None:
         current_user.avatar_url = avatar_url
+
+    current_user.updated_at = datetime.utcnow()
+    await session.commit()
+    await session.refresh(current_user)
+
+    return current_user
+
+
+class UserProfileUpdate(SQLModel):
+    full_name: str | None = None
+    avatar_url: str | None = None
+
+
+@router.patch("/auth/me")
+async def patch_current_user(
+    body: UserProfileUpdate,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Update current user profile (JSON body)"""
+    if body.full_name is not None:
+        current_user.full_name = body.full_name
+    if body.avatar_url is not None:
+        current_user.avatar_url = body.avatar_url
 
     current_user.updated_at = datetime.utcnow()
     await session.commit()

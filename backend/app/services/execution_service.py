@@ -183,14 +183,15 @@ class ExecutionService:
             "agent": {
                 "id": str(agent.id),
                 "name": agent.name,
-                "domain": agent.domain,
+                "domain": agent.domain.value if hasattr(agent.domain, "value") else str(agent.domain),
                 "personality": agent.personality,
             },
             "task": {
                 "id": str(task.id),
                 "title": task.title,
                 "description": task.description,
-                "input_data": task.input_data,
+                # input_data is not a DB column — reserved for future enrichment
+                "input_data": None,
             },
         }
 
@@ -277,10 +278,6 @@ class ExecutionService:
 
         # Add initial user message
         task_message = f"Task: {task.title}\n\n{task.description}"
-        if task.input_data:
-            task_message += (
-                f"\n\nInput data: {json.dumps(task.input_data, default=str)}"
-            )
 
         messages.append({"role": "user", "content": task_message})
 

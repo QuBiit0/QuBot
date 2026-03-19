@@ -2,14 +2,30 @@
 Agent Service - Business logic for agent management
 """
 
+from typing import Any
 from uuid import UUID
 
+import structlog
 from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from ..models.agent import Agent, AgentClass, AgentTool
 from ..models.enums import AgentStatusEnum
+
+logger = structlog.get_logger(__name__)
+
+
+async def _broadcast_agent_event(event_type: str, payload: dict[str, Any]) -> None:
+    """Fire-and-forget realtime broadcast for agent events. Never raises."""
+    try:
+        from ..core.realtime import EventType, RealtimeEvent, get_connection_manager
+
+        et = EventType(event_type)
+        event = RealtimeEvent.create(event_type=et, payload=payload)
+        await get_connection_manager().publish_event(event)
+    except Exception as exc:
+        logger.debug("broadcast_agent_event_failed", event=event_type, error=str(exc))
 
 
 class AgentService:
@@ -44,6 +60,14 @@ class AgentService:
         self.session.add(agent)
         await self.session.commit()
         await self.session.refresh(agent)
+
+        await _broadcast_agent_event("agent.created", {
+            "agent_id": str(agent.id),
+            "name": agent.name,
+            "status": agent.status.value,
+            "domain": agent.domain.value if hasattr(agent.domain, "value") else str(agent.domain),
+        })
+
         return agent
 
     async def get_agent(self, agent_id: UUID) -> Agent | None:
@@ -137,6 +161,14 @@ class AgentService:
 
         await self.session.commit()
         await self.session.refresh(agent)
+
+        await _broadcast_agent_event("agent.status_changed", {
+            "agent_id": str(agent.id),
+            "name": agent.name,
+            "status": status.value,
+            "current_task_id": str(current_task_id) if current_task_id else None,
+        })
+
         return agent
 
     async def assign_tool(

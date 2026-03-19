@@ -163,6 +163,28 @@ async def get_metrics(
     }
 
 
+@router.get("/queue", response_model=None)
+async def get_queue_stats():
+    """
+    Worker queue statistics.
+
+    Returns stream length, pending messages, and active worker count from Redis Streams.
+    Returns a degraded response (available: false) if Redis is unreachable.
+    """
+    if not REDIS_AVAILABLE:
+        return {"data": {"available": False, "reason": "Redis not installed"}}
+
+    try:
+        from ...worker import TaskQueue
+
+        queue = TaskQueue()
+        stats = await queue.get_queue_stats()
+        await queue.disconnect()
+        return {"data": {**stats, "available": True}}
+    except Exception as exc:
+        return {"data": {"available": False, "reason": str(exc)}}
+
+
 @router.get("/info", response_model=None)
 async def get_system_info():
     """

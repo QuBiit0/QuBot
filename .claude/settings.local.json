@@ -55,7 +55,17 @@
       "WebFetch(domain:github.com)",
       "Bash(gh api:*)",
       "Bash(node -e \":*)",
-      "WebFetch(domain:raw.githubusercontent.com)"
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(k,v\\) for k,v in {**d.get\\(''''dependencies'''',{}\\),**d.get\\(''''devDependencies'''',{}\\)}.items\\(\\)]\")",
+      "Bash(node -e \"require\\(''@xyflow/react''\\); console.log\\(''ok''\\)\")",
+      "Bash(node -e \"const rf = require\\(''@xyflow/react''\\); console.log\\(Object.keys\\(rf\\).filter\\(k => k.includes\\(''React''\\) || k.includes\\(''Flow''\\)\\).join\\('', ''\\)\\)\")",
+      "Bash(xargs -I {} basename {})",
+      "Bash(python -c \":*)",
+      "Bash(xargs wc:*)",
+      "Bash(grep -E \"\\\\.py$\")",
+      "Read(//c/Users/QuBit/Desktop/Qubot/**)",
+      "Bash(npm run:*)",
+      "Bash(docker-compose -f docker-compose.local.yml up db redis -d)"
     ],
     "additionalDirectories": [
       "c:\\Users\\QuBit\\Desktop\\Qubot\\frontend\\app\\agents"

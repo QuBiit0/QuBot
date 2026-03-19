@@ -11,13 +11,15 @@ import {
   Wrench,
   Sparkles,
   Zap,
-  Store
+  Store,
+  ClipboardList,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
   { href: '/dashboard', label: 'Office', icon: LayoutDashboard },
   { href: '/mission-control', label: 'Mission Control', icon: Kanban },
+  { href: '/tasks', label: 'Tasks', icon: ClipboardList },
   { href: '/agents', label: 'Agents', icon: Users },
   { href: '/chat', label: 'Chat', icon: MessageSquare },
   { href: '/tools', label: 'Tools', icon: Wrench },

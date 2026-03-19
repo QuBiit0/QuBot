@@ -4,29 +4,29 @@ import { create } from 'zustand';
 import { Agent } from '@/types';
 
 interface AgentsState {
-  agents: Record<string | number, Agent>;
-  selectedAgent: string | number | null;
+  agents: Record<string, Agent>;
+  selectedAgent: string | null;
   isLoading: boolean;
   error: string | null;
-  
+
   // Actions
   setAgents: (agents: Agent[]) => void;
   addAgent: (agent: Agent) => void;
-  updateAgent: (id: string | number, updates: Partial<Agent>) => void;
-  removeAgent: (id: string | number) => void;
-  selectAgent: (id: string | number | null) => void;
+  updateAgent: (id: string, updates: Partial<Agent>) => void;
+  removeAgent: (id: string) => void;
+  selectAgent: (id: string | null) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
 }
 
-export const useAgentsStore = create<AgentsState>((set, get) => ({
+export const useAgentsStore = create<AgentsState>((set) => ({
   agents: {},
   selectedAgent: null,
   isLoading: false,
   error: null,
 
   setAgents: (agents) => {
-    const agentMap: Record<string | number, Agent> = {};
+    const agentMap: Record<string, Agent> = {};
     agents.forEach((agent) => {
       agentMap[agent.id] = agent;
     });

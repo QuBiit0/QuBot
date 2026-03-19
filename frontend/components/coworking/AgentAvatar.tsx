@@ -218,7 +218,7 @@ export function AgentAvatar({
       {/* State indicator text */}
       <Group y={avatarSize / 2 + (agent.state === 'working' && agent.current_task ? 56 : 36)}>
         <Text
-          text={agent.state.toUpperCase()}
+          text={(agent.state ?? 'idle').toUpperCase()}
           fontSize={9}
           fontFamily="system-ui, -apple-system, sans-serif"
           fill={getStatusColor()}

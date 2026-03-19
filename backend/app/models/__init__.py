@@ -19,6 +19,7 @@ from .integration_config import IntegrationConfig
 from .mcp_server import MCPServer
 from .task import Task, TaskEvent
 from .tool import Tool
+from .workflow import Workflow
 
 __all__ = [
     "Agent",
@@ -43,4 +44,5 @@ __all__ = [
     "ConfigValueType",
     "IntegrationConfig",
     "MCPServer",
+    "Workflow",
 ]
