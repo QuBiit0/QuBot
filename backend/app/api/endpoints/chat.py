@@ -1,10 +1,16 @@
 """
 Chat endpoint — receives user messages and orchestrates task creation + execution.
+
+Phase 4 additions:
+- session_id field in ChatRequest for conversation continuity
+- ConversationManager integration for loading/saving history
+- History is passed to OrchestratorService as context
 """
 
 import asyncio
 import json
 import logging
+import uuid as _uuid_mod
 from collections.abc import AsyncGenerator
 from uuid import UUID
 
@@ -13,6 +19,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.conversation_manager import get_conversation_manager
 from app.core.realtime import broadcast_activity, broadcast_metrics
 from app.database import get_session
 from app.models.enums import DomainEnum, PriorityEnum
@@ -160,12 +167,16 @@ async def _get_default_llm_config_id(session: AsyncSession) -> UUID | None:
 class ChatRequest(BaseModel):
     message: str
     agent_id: int | None = None
+    # Optional session_id for conversation continuity.
+    # If omitted a new UUID session is created automatically.
+    session_id: str | None = None
 
 
 class ChatResponse(BaseModel):
     reply: str
     tasks_created: list[int] = []
     actions_taken: list[str] = []
+    session_id: str | None = None  # Echo back so client can use it in next request
 
 
 # ── Endpoint ──────────────────────────────────────────────────────────────────
@@ -179,10 +190,20 @@ async def chat(
     """
     Main chat endpoint. Detects domain, uses OrchestratorService to process task,
     and broadcasts real-time WebSocket updates.
+
+    Supports session_id for conversation continuity — pass the session_id
+    returned from the previous response to maintain context.
     """
     logger.info("[chat] message: %s", request.message[:80])
 
+    # Resolve or create session_id
+    session_id = request.session_id or str(_uuid_mod.uuid4())
+
     try:
+        # Load conversation history from Redis working memory (L1)
+        conv_mgr = get_conversation_manager()
+        history, compaction_summary = await conv_mgr.load_session(session_id)
+
         # Detect domain from message
         domain = _detect_domain(request.message)
         logger.debug("[chat] detected domain: %s", domain.value)
@@ -196,6 +217,17 @@ async def chat(
                 detail="No LLM configuration available. Please configure an LLM first.",
             )
 
+        # Build context with conversation history
+        context_data: dict = {
+            "source": "chat",
+            "original_message": request.message,
+            "session_id": session_id,
+        }
+        if history:
+            context_data["conversation_history"] = history[-10:]  # last 10 msgs
+        if compaction_summary:
+            context_data["compaction_summary"] = compaction_summary
+
         # Initialize orchestrator service
         orchestrator = OrchestratorService(session)
 
@@ -206,7 +238,7 @@ async def chat(
             llm_config_id=llm_config_id,
             priority=PriorityEnum.MEDIUM,
             requested_domain=domain,
-            input_data={"source": "chat", "original_message": request.message},
+            input_data=context_data,
             created_by="user",
         )
 
@@ -274,10 +306,22 @@ async def chat(
                 "Please try again or contact support if the problem persists."
             )
 
+        # Persist conversation turn to Redis working memory
+        new_msgs = [
+            {"role": "user", "content": request.message},
+            {"role": "assistant", "content": reply},
+        ]
+        await conv_mgr.save_session(
+            session_id,
+            history + new_msgs,
+            compaction_summary,
+        )
+
         return ChatResponse(
             reply=reply,
             tasks_created=tasks_created if tasks_created else [],
             actions_taken=actions,
+            session_id=session_id,
         )
 
     except HTTPException:

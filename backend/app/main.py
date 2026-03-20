@@ -249,6 +249,19 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logger.warning(f"Realtime setup (Redis not available): {exc}")
 
+    # Initialize ConversationManager (working memory / chat history)
+    try:
+        import redis.asyncio as aioredis
+        from .core.conversation_manager import init_conversation_manager
+
+        _redis_client = aioredis.from_url(
+            settings.REDIS_URL, encoding="utf-8", decode_responses=False
+        )
+        init_conversation_manager(_redis_client)
+        logger.info("ConversationManager initialized with Redis.")
+    except Exception as exc:
+        logger.warning(f"ConversationManager Redis init skipped: {exc}")
+
     yield
 
     # Shutdown
