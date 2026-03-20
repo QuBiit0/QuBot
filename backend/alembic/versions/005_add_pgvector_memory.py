@@ -32,11 +32,22 @@ EMBEDDING_DIM = 1536
 
 
 def _pgvector_available(conn) -> bool:
-    """Check whether the pgvector extension can be created."""
+    """
+    Check whether the pgvector extension can be created.
+
+    Uses a SAVEPOINT so that a failure doesn't abort the outer Alembic
+    transaction — postgres:16-alpine ships without pgvector, and that's OK.
+    """
     try:
+        conn.execute(sa.text("SAVEPOINT _pgvector_check"))
         conn.execute(sa.text("CREATE EXTENSION IF NOT EXISTS vector"))
+        conn.execute(sa.text("RELEASE SAVEPOINT _pgvector_check"))
         return True
     except Exception:
+        try:
+            conn.execute(sa.text("ROLLBACK TO SAVEPOINT _pgvector_check"))
+        except Exception:
+            pass
         return False
 
 
