@@ -1,143 +1,88 @@
-# Contexto Activo del Proyecto
+# Contexto Activo - Qubot
 
-> Ultima actualizacion: 2026-03-20
+## Fecha: 2026-03-20 (Evening)
 
----
+## Estado del Proyecto: ✅ Funcional
 
-## Estado Actual
+### Containers
+- qubot-api: ✅ Running (healthy)
+- qubot-db: ✅ Running (healthy)
+- qubot-frontend: ✅ Running (healthy)
+- qubot-worker: ✅ Running (healthy)
+- qubot-redis: ✅ Running (healthy)
+- qubot-nginx: ✅ Running
 
-**Fase**: Correccion de canales completada - Todos los 17 canales ahora routen a _process_message()
-
-### Lo Completado en Esta Sesion:
-
-#### 1. LSP Errors - CORREGIDOS
-- `tool_execution_service.py`: Metodos de loop detection corregidos
-- `base.py`: Tipo de schema corregido
-- `browser_tool.py`: Tipos de BeautifulSoup corregidos
-- `seed_user.py`: Uso de AsyncSession corregido
-- `script_execution_service.py`: Path de skills corregido
-
-#### 2. Skills Execution Engine - IMPLEMENTADO
-- Endpoint `POST /skills/{skill_id}/execute` agregado
-- Integracion con SkillExecutionService existente
-- Validacion de codigo y timeout
-
-#### 3. Plugin SDK - IMPLEMENTADO
-- `backend/app/plugins/base.py` - Clases base (BasePlugin, ChannelPlugin, etc.)
-- `backend/app/plugins/loader.py` - Loader con descubrimiento de filesystem
-- `backend/app/plugins/manager.py` - Manager con lifecycle completo
-- `backend/app/plugins/__init__.py` - Exports
-- `backend/app/plugins/examples/hello-world/` - Plugin ejemplo funcional
-
-#### 4. Channels - TODOS CORREGIDOS ✅
-
-**Canales reescritos para usar InboundMessage/OutboundMessage y llamar _process_message()**:
-- `line_channel.py` - Completado en sesion anterior (223 lineas)
-- `zalo_channel.py` - Completado en sesion anterior
-- `synology_chat_channel.py` - Completado en sesion anterior
-- `feishu_channel.py` - Completado en sesion anterior
-
-**Canales corregidos (agregado _process_message() a handle_webhook)**:
-- `irc_channel.py` - 52 -> 58 lineas ✅
-- `twitch_channel.py` - 52 -> 58 lineas ✅
-- `nostr_channel.py` - 50 -> 56 lineas ✅
-- `signal_channel.py` - 139 -> 149 lineas ✅
-- `teams_channel.py` - 206 -> 166 lineas ✅
-- `googlechat_channel.py` - 191 -> 165 lineas ✅
-- `imessage_channel.py` - 227 -> 204 lineas ✅
-- `matrix_channel.py` - 111 -> 148 lineas ✅
-- `mattermost_channel.py` - 73 -> 136 lineas ✅
-
-**Problema resuelto**: Canales importaban `ChannelConfig` y `ChannelMessage` que NO existian en base.py. Reescritos para usar `InboundMessage`/`OutboundMessage` que si existen.
-
-#### 5. Builds - VERIFICADOS ✅
-- Backend: 31 tools, 183 API routes - imports OK
-- Frontend: 28 pages - build OK
+### Credenciales
+- **Admin**: `admin@qubot.ai` / `admin`
+- **DB**: `qubot:qubot_pass@db:5432/qubot_db`
 
 ---
 
-## Hallazgos Clave del Analisis
+## Último Trabajo Completado
 
-### Los canales NO son stubs:
-- 15 de 17 canales tenian entre 50-294 lineas de codigo
-- Solo faltaba que routen a `_process_message()` para que funcionen
+### Fixes aplicados:
+1. ✅ Chat pages mejorados (/chat y /webchat)
+   - Botón "Office" añadido
+   - Indicador de conexión WiFi
+   - Mensajes de error amigables
+   - Health check automático cada 30s
 
-### Lo que SI es Gap Critico:
-- **Skills Execution Engine**: Ya existia SkillExecutionService, solo faltaba endpoint ✅
-- **Plugin SDK**: Ahora implementado ✅
-- **Channel Routing**: Ahora corregido ✅
-- **SecretsManager**: Stub que necesita implementacion real
+2. ✅ Servicio layer añadido
+   - docker_sandbox_service
+   - loop_detection_service
+   - script_execution_service
+   - tool_profile_service
 
----
+3. ✅ Integrations module
+   - Calendar (Google, Outlook)
+   - Voice (OpenAI)
 
-## Proximo Paso Recomendado
+4. ✅ Skills system
+   - 5 skills definidos en backend/app/skills/
 
-### PRIORIDAD 1: SecretsManager
-- `backend/app/services/secrets/manager.py` - Implementar retrieve, list, delete
-
-### PRIORIDAD 2: Verificar funcionalidad existente
-1. Testear Kanban drag-drop con sync a DB + WebSocket
-2. Testear skill execution endpoint
-3. Testear plugin loader
-
-### PRIORIDAD 3: Tests
-4. Agregar tests E2E
+5. ✅ Fix de credenciales DB
+   - DB password sincronizada con docker-compose.yml
 
 ---
 
-## Archivos Creados/Modificados
+## Commits Recientes (今晚)
 
-### Nuevos:
-- `backend/app/plugins/base.py`
-- `backend/app/plugins/loader.py`
-- `backend/app/plugins/manager.py`
-- `backend/app/plugins/__init__.py`
-- `backend/app/plugins/examples/hello-world/plugin.json`
-- `backend/app/plugins/examples/hello-world/__init__.py`
-- `backend/app/models/secret.py`
-- `docs/ANALYSIS-QUBOT-VS-OPENCLAW-VS-NANOBOT.md`
-
-### Modificados (Channels):
-- `backend/app/channels/irc_channel.py` - _process_message()
-- `backend/app/channels/twitch_channel.py` - _process_message()
-- `backend/app/channels/nostr_channel.py` - _process_message()
-- `backend/app/channels/signal_channel.py` - Reescrito completo
-- `backend/app/channels/teams_channel.py` - Reescrito completo
-- `backend/app/channels/googlechat_channel.py` - Reescrito completo
-- `backend/app/channels/imessage_channel.py` - Reescrito completo
-- `backend/app/channels/matrix_channel.py` - Reescrito completo
-- `backend/app/channels/mattermost_channel.py` - Reescrito completo
-- `backend/app/channels/line_channel.py` - Completado
-- `backend/app/channels/zalo_channel.py` - Completado
-- `backend/app/channels/synology_chat_channel.py` - Completado
-- `backend/app/channels/feishu_channel.py` - Completado
-
-### Otros Modificados:
-- `backend/app/api/skills.py` - Endpoint de ejecucion
-- `backend/app/services/tool_execution_service.py` - Metodos corregidos
-- `backend/app/services/script_execution_service.py` - Path corregido
-- `backend/app/core/tools/base.py` - Tipo schema corregido
-- `backend/app/core/tools/browser_tool.py` - Tipos BS4 corregidos
-- `backend/scripts/seed_user.py` - AsyncSession corregido
+```
+[master 5e7044b] docs: update changelog for v1.1.0
+[master 38f494b] fix(docker): update database credentials to match .env
+[master 0e9eb08] feat(frontend): update UI components and pages
+[master ebd4e9a] feat(backend): add service layer and integrations
+[master 54b2d34] feat(frontend): add home button and friendly error messages to chat pages
+```
 
 ---
 
-## Notas Tecnicas
+## Para Continuar Mañana
 
-- Redis no esta corriendo localmente (warning en logs - OK)
-- Los canales se saltan si no estan configurados (OK)
-- LSP diagnostics pueden estar stale despues de edits - Ignorar si dice "ChannelConfig is unknown" cuando el archivo ya fue reescrito
-- Backend importa OK con: `python -c "import app.main; print('Backend OK')"`
+### Issues pendientes:
+1. **WebChat API** - Necesita testing real con el endpoint `/chat/stream`
+2. **Skills marketplace** - UI existe, necesita conectar con backend
+3. **Voice integration** - UI existe, necesita testing
+4. **Calendar integration** - UI existe, necesita testing
+5. **SecretsManager UI** - Página existe, necesita testing completo
+
+### Testing recomendado:
+```bash
+# Login
+curl -X POST http://localhost:8000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@qubot.ai","password":"admin"}'
+
+# Test chat stream
+curl -X POST http://localhost:8000/api/v1/chat/stream \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <TOKEN>" \
+  -d '{"message":"Hello"}'
+```
 
 ---
 
-## Checklist de Funcionalidad
-
-- [x] Backend importa OK
-- [x] Frontend build OK
-- [x] 17 channels todos corregidos para routar a agent pipeline
-- [x] Plugin SDK implementado
-- [x] Skill execution endpoint implementado
-- [x] SecretsManager implementado (retrieve_secret, list_secrets, delete_secret, update_secret, rotate_secret)
-- [x] Secret model created (backend/app/models/secret.py)
-- [ ] Tests E2E
+## Links Útiles
+- Frontend: http://localhost:3000
+- API Docs: http://localhost:8000/docs
+- Nginx: http://localhost:80
