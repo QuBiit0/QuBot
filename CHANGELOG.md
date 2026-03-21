@@ -4,6 +4,62 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.1.0] - 2026-03-20 (Evening)
+
+### Frontend Improvements
+
+#### Chat Pages Enhanced ✅
+- Added "Office" home button to `/chat` and `/webchat` pages
+- Added connection status indicator with WiFi icon (green/red/amber)
+- Implemented user-friendly error messages for all API errors:
+  - Network errors → "Unable to connect to the server"
+  - 401 errors → "Session expired"
+  - 403 errors → "Permission denied"
+  - 429 errors → "Too many requests"
+  - 500/503 errors → "Server error"
+- Added automatic health check polling every 30 seconds
+
+#### UI Components Updated
+- `AgentAvatar.tsx` - Enhanced agent avatar display
+- `Sidebar.tsx` - Updated navigation
+- `AgentWizard.tsx` - Improved agent creation flow
+- `mission-control/page.tsx` - UI improvements
+- `settings/page.tsx` - Settings page enhancements
+- `tools/page.tsx` - Tools page updates
+
+### Backend Services Added
+
+#### New Service Layer
+- `docker_sandbox_service.py` - Secure isolated code execution
+- `loop_detection_service.py` - Prevents infinite tool-call loops
+- `script_execution_service.py` - Script management and execution
+- `tool_profile_service.py` - Granular tool access control
+
+#### Integrations Module
+- `integrations/calendar/` - Calendar integrations (Google, Outlook)
+- `integrations/voice/` - Voice integrations (OpenAI)
+
+#### Skills System
+- Added `backend/app/skills/` with 5 skill definitions:
+  - bugfix
+  - code-reviewer
+  - refactor
+  - security-audit
+  - test-generator
+
+### Infrastructure Fixes
+
+#### Docker Configuration
+- Fixed database credential mismatch between `.env` and `docker-compose.yml`
+- API now connects correctly to PostgreSQL with password `qubot_pass`
+
+### State
+- ✅ 6 containers running healthy
+- ✅ Login working (admin@qubot.ai / admin)
+- ✅ All chat pages functional
+
+---
+
 ## [1.0.0] - 2026-03-20
 
 ### Backend Fixes
