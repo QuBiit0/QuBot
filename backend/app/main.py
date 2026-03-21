@@ -23,6 +23,31 @@ from .core.rate_limit import apply_rate_limits
 from .core.realtime import get_connection_manager
 from .database import create_tables
 
+# Service singletons
+_docker_sandbox_service = None
+_loop_detection_service = None
+_tool_profile_service = None
+_plugin_manager = None
+
+
+def get_docker_sandbox():
+    return _docker_sandbox_service
+
+
+def get_loop_detection_service():
+    return _loop_detection_service
+
+
+def get_tool_profile_service():
+    return _tool_profile_service
+
+
+def get_plugin_manager():
+    from .plugins import get_plugin_manager as _get_pm
+
+    return _get_pm()
+
+
 # Configure structlog
 structlog.configure(
     processors=[
@@ -80,6 +105,9 @@ from .api.endpoints.websocket import router as websocket_router
 from .api.skills import router as skills_router
 from .api.endpoints.channels import router as channels_router
 from .api.endpoints.workflows import router as workflows_router
+from .api.endpoints.calendar import router as calendar_router
+from .api.endpoints.voice import router as voice_router
+from .api.endpoints.secrets import router as secrets_router
 
 
 async def _bootstrap_mcp_servers() -> None:
@@ -147,13 +175,16 @@ async def _bootstrap_mcp_servers() -> None:
                     server.tools_cache = None
                     _sess.add(server)
                     await _sess.commit()
-                    logger.info(f"MCP server '{srv['name']}' config updated (server_type={srv['server_type']}).")
+                    logger.info(
+                        f"MCP server '{srv['name']}' config updated (server_type={srv['server_type']})."
+                    )
 
             # Sync tools if cache is empty or server was in error state
             if not server.tools_cache or server.status == "error":
                 try:
                     if server.server_type == "http":
                         from .core.mcp_client import list_tools_http
+
                         tools = await asyncio.wait_for(
                             list_tools_http(server.url, dict(server.headers or {})),
                             timeout=20,
@@ -165,7 +196,11 @@ async def _bootstrap_mcp_servers() -> None:
                         )
                     else:
                         tools = await asyncio.wait_for(
-                            list_tools_stdio(server.command, list(server.args or []), dict(server.env_vars or {})),
+                            list_tools_stdio(
+                                server.command,
+                                list(server.args or []),
+                                dict(server.env_vars or {}),
+                            ),
                             timeout=20,
                         )
 
@@ -193,6 +228,8 @@ async def _bootstrap_mcp_servers() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan events"""
+    global _docker_sandbox_service, _loop_detection_service, _tool_profile_service
+
     # Startup
     logger.info("Starting Qubot backend...")
 
@@ -211,7 +248,11 @@ async def lifespan(app: FastAPI):
 
     # Load tool integration configs from DB and apply to registry
     try:
-        from .api.endpoints.integrations import TOOL_CONFIG_SCHEMAS, _env_defaults, _reload_tool
+        from .api.endpoints.integrations import (
+            TOOL_CONFIG_SCHEMAS,
+            _env_defaults,
+            _reload_tool,
+        )
         from .database import AsyncSessionLocal
         from .models.integration_config import IntegrationConfig
         from sqlmodel import select as _select
@@ -236,6 +277,7 @@ async def lifespan(app: FastAPI):
     try:
         from . import channels  # noqa: F401 — triggers channel self-registration
         from .channels import get_channel_registry
+
         active = get_channel_registry().list_names()
         logger.info(f"Channels active: {active or 'none (set env vars to enable)'}")
     except Exception as exc:
@@ -262,10 +304,71 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logger.warning(f"ConversationManager Redis init skipped: {exc}")
 
+    # Initialize DockerSandboxService (secure isolated execution)
+    try:
+        from .services.docker_sandbox_service import DockerSandboxService, SandboxConfig
+
+        _docker_sandbox_service = DockerSandboxService(
+            base_config=SandboxConfig(
+                enabled=True,
+                image="python:3.12-slim",
+                memory_limit="512m",
+                timeout_seconds=300,
+            )
+        )
+        await _docker_sandbox_service.initialize()
+        logger.info("DockerSandboxService initialized.")
+    except Exception as exc:
+        logger.warning(f"DockerSandboxService init skipped: {exc}")
+        _docker_sandbox_service = None
+
+    # Initialize LoopDetectionService (prevents infinite tool-call loops)
+    try:
+        from .services.loop_detection_service import LoopDetectionService
+
+        _loop_detection_service = LoopDetectionService(
+            enabled=True, warning_threshold=8, critical_threshold=12, history_size=30
+        )
+        logger.info("LoopDetectionService initialized.")
+    except Exception as exc:
+        logger.warning(f"LoopDetectionService init skipped: {exc}")
+        _loop_detection_service = None
+
+    # Initialize ToolProfileService (granular tool access control)
+    try:
+        from .services.tool_profile_service import ToolProfileService
+
+        _tool_profile_service = ToolProfileService()
+        logger.info("ToolProfileService initialized.")
+    except Exception as exc:
+        logger.warning(f"ToolProfileService init skipped: {exc}")
+        _tool_profile_service = None
+
+    # Initialize PluginManager (discovers and loads plugins)
+    try:
+        from .plugins import get_plugin_manager as _get_pm
+
+        _plugin_manager = _get_pm()
+        await _plugin_manager.initialize()
+        logger.info(
+            f"PluginManager initialized with {len(_plugin_manager.list_plugins())} plugins."
+        )
+    except Exception as exc:
+        logger.warning(f"PluginManager init skipped: {exc}")
+        _plugin_manager = None
+
     yield
 
     # Shutdown
     logger.info("Shutting down Qubot backend...")
+
+    # Shutdown DockerSandboxService
+    if _docker_sandbox_service:
+        try:
+            await _docker_sandbox_service.shutdown()
+            logger.info("DockerSandboxService shutdown complete.")
+        except Exception as exc:
+            logger.warning(f"DockerSandboxService shutdown error: {exc}")
 
     try:
         manager = get_connection_manager()
@@ -273,6 +376,14 @@ async def lifespan(app: FastAPI):
         logger.info("Realtime connections closed.")
     except Exception as exc:
         logger.error(f"Shutdown error: {exc}")
+
+    # Shutdown PluginManager
+    if _plugin_manager:
+        try:
+            await _plugin_manager.shutdown()
+            logger.info("PluginManager shutdown complete.")
+        except Exception as exc:
+            logger.warning(f"PluginManager shutdown error: {exc}")
 
 
 # Create FastAPI app
@@ -318,7 +429,9 @@ async def add_security_headers(request: Request, call_next):
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
     if not settings.DEBUG:
-        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
+        response.headers["Strict-Transport-Security"] = (
+            "max-age=31536000; includeSubDomains; preload"
+        )
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
             "script-src 'self'; "
@@ -375,7 +488,9 @@ async def global_exception_handler(request: Request, exc: Exception):
     logger.error("unhandled_exception", error=str(exc), exc_info=True)
     return JSONResponse(
         status_code=500,
-        content={"error": {"code": "INTERNAL_ERROR", "message": "Internal server error"}},
+        content={
+            "error": {"code": "INTERNAL_ERROR", "message": "Internal server error"}
+        },
     )
 
 
@@ -384,7 +499,9 @@ app.include_router(system_router, prefix=settings.API_V1_STR)
 app.include_router(auth_router, prefix=settings.API_V1_STR)
 app.include_router(agents_router, prefix=settings.API_V1_STR)
 app.include_router(tasks_router, prefix=settings.API_V1_STR)
-app.include_router(tool_execution_router, prefix=settings.API_V1_STR)  # must be before tools_router (static routes before /{uuid})
+app.include_router(
+    tool_execution_router, prefix=settings.API_V1_STR
+)  # must be before tools_router (static routes before /{uuid})
 app.include_router(tools_router, prefix=settings.API_V1_STR)
 app.include_router(llm_configs_router, prefix=settings.API_V1_STR)
 app.include_router(memories_router, prefix=settings.API_V1_STR)
@@ -397,6 +514,9 @@ app.include_router(integrations_router, prefix=settings.API_V1_STR)
 app.include_router(skills_router, prefix=settings.API_V1_STR)
 app.include_router(channels_router, prefix=settings.API_V1_STR)
 app.include_router(workflows_router, prefix=settings.API_V1_STR)
+app.include_router(calendar_router, prefix=settings.API_V1_STR)
+app.include_router(voice_router, prefix=settings.API_V1_STR)
+app.include_router(secrets_router, prefix=settings.API_V1_STR)
 
 
 # Root endpoint

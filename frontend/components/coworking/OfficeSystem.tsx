@@ -685,7 +685,11 @@ export default function OfficeSystem() {
   useEffect(() => {
     const tick = () => {
       const now = new Date();
-      setCurrentTime(now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }));
+      // Use local timezone explicitly with 24-hour format
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const seconds = String(now.getSeconds()).padStart(2, '0');
+      setCurrentTime(`${hours}:${minutes}:${seconds}`);
     };
     tick();
     const id = setInterval(tick, 1000);

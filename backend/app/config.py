@@ -242,6 +242,16 @@ class Settings(BaseSettings):
         """Check if S3 is configured"""
         return bool(self.S3_BUCKET and self.S3_ACCESS_KEY and self.S3_SECRET_KEY)
 
+    # ============================================
+    # Paths
+    # ============================================
+    SKILLS_PATH: str = Field(
+        default="/app/skills", description="Path to skills directory"
+    )
+    PLUGINS_PATH: str = Field(
+        default="/app/plugins", description="Path to plugins directory"
+    )
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

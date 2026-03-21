@@ -30,36 +30,35 @@ from .scheduler_tool import SchedulerTool
 from .shell_tool import SystemShellTool
 from .web_search_tool import WebSearchTool
 from .delegate_tool import DelegateTool
+from .agent_creator_tool import AgentCreatorTool
+from .skill_creator_tool import SkillCreatorTool
+from .channel_manager_tool import ChannelManagerTool
+from .sessions_tool import SessionsTool, SubagentSpawnTool
+from .gateway_tool import GatewayTool
+from .nodes_tool import NodesTool
+from .canvas_tool import CanvasTool
+from .image_generation_tool import ImageGenerationTool
+from .browser_profiles_tool import BrowserProfilesTool
+from .apply_patch_tool import ApplyPatchTool
+from .calendar_tool import CalendarTool
+from .voice_tool import VoiceTool
+from .secrets_tool import SecretsTool
 
 __all__ = [
-    # Base classes
-    "BaseTool",
-    "ToolResult",
-    "ToolParameter",
-    "ToolCategory",
-    "ToolRiskLevel",
-    "ToolRegistry",
-    "get_tool_registry",
-    "ToolDefinition",
-    # Original tools
-    "HttpApiTool",
-    "SystemShellTool",
-    "WebBrowserTool",
-    "FilesystemTool",
-    "SchedulerTool",
-    "WebSearchTool",
-    "PlaywrightBrowserTool",
-    # New tools
-    "CodeExecutorTool",
-    "DocumentReaderTool",
-    "DatabaseQueryTool",
-    "AgentMemoryTool",
-    "GitHubTool",
-    "EmailTool",
-    "NotificationTool",
-    "DocsSearchTool",
-    "MCPInstallerTool",
-    "DelegateTool",
+    "AgentCreatorTool",
+    "SkillCreatorTool",
+    "ChannelManagerTool",
+    "SessionsTool",
+    "SubagentSpawnTool",
+    "GatewayTool",
+    "NodesTool",
+    "CanvasTool",
+    "ImageGenerationTool",
+    "BrowserProfilesTool",
+    "ApplyPatchTool",
+    "CalendarTool",
+    "VoiceTool",
+    "SecretsTool",
 ]
 
 
@@ -96,5 +95,19 @@ def register_default_tools(config: dict = None) -> ToolRegistry:
     registry.register(DocsSearchTool, config.get("docs_search", {}))
     registry.register(MCPInstallerTool, config.get("mcp_installer", {}))
     registry.register(DelegateTool, config.get("delegate_tool", {}))
+    registry.register(AgentCreatorTool, config.get("agent_creator", {}))
+    registry.register(SkillCreatorTool, config.get("skill_creator", {}))
+    registry.register(ChannelManagerTool, config.get("channel_manager", {}))
+    registry.register(SessionsTool, config.get("sessions", {}))
+    registry.register(SubagentSpawnTool, config.get("subagent_spawn", {}))
+    registry.register(GatewayTool, config.get("gateway", {}))
+    registry.register(NodesTool, config.get("nodes", {}))
+    registry.register(CanvasTool, config.get("canvas", {}))
+    registry.register(ImageGenerationTool, config.get("image_generation", {}))
+    registry.register(BrowserProfilesTool, config.get("browser_profiles", {}))
+    registry.register(ApplyPatchTool, config.get("apply_patch", {}))
+    registry.register(CalendarTool, config.get("calendar", {}))
+    registry.register(VoiceTool, config.get("voice", {}))
+    registry.register(SecretsTool, config.get("secrets", {}))
 
     return registry

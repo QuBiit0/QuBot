@@ -16,8 +16,9 @@ import time
 from .base import BaseTool, ToolCategory, ToolParameter, ToolResult, ToolRiskLevel
 
 
-def _ddg_text(query: str, region: str, safesearch: str, timelimit: str | None,
-               max_results: int) -> list[dict]:
+def _ddg_text(
+    query: str, region: str, safesearch: str, timelimit: str | None, max_results: int
+) -> list[dict]:
     """Synchronous DuckDuckGo text search — must be called via to_thread()."""
     from duckduckgo_search import DDGS
 
@@ -30,13 +31,18 @@ def _ddg_text(query: str, region: str, safesearch: str, timelimit: str | None,
             max_results=max_results,
         )
         return [
-            {"title": r.get("title", ""), "url": r.get("href", ""), "snippet": r.get("body", "")}
+            {
+                "title": r.get("title", ""),
+                "url": r.get("href", ""),
+                "snippet": r.get("body", ""),
+            }
             for r in (raw or [])
         ]
 
 
-def _ddg_news(query: str, region: str, safesearch: str, timelimit: str | None,
-               max_results: int) -> list[dict]:
+def _ddg_news(
+    query: str, region: str, safesearch: str, timelimit: str | None, max_results: int
+) -> list[dict]:
     """Synchronous DuckDuckGo news search — must be called via to_thread()."""
     from duckduckgo_search import DDGS
 
@@ -104,7 +110,7 @@ class WebSearchTool(BaseTool):
             "max_results": ToolParameter(
                 name="max_results",
                 type="integer",
-                description=f"Maximum results to return (default 10, max {MAX_RESULTS})",
+                description="Maximum results to return (default 10, max 30)",
                 required=False,
                 default=10,
             ),
@@ -206,5 +212,9 @@ class WebSearchTool(BaseTool):
             data={"query": query, "results": results, "total": len(results)},
             stdout="\n".join(lines),
             execution_time_ms=int((time.time() - start_time) * 1000),
-            metadata={"region": region, "time_range": time_range, "search_type": search_type},
+            metadata={
+                "region": region,
+                "time_range": time_range,
+                "search_type": search_type,
+            },
         )

@@ -1,8 +1,16 @@
 """
 Skills API Endpoints
 
-CRUD operations for skills and skill assignments.
+Skills are Markdown files stored in the filesystem.
+This module handles CRUD operations and file management.
 """
+
+import json
+import os
+import shutil
+from pathlib import Path
+from datetime import datetime
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import and_, or_
@@ -17,16 +25,12 @@ from app.models.skill import (
     AgentSkillAssignSchema,
     AgentSkillResponseSchema,
     Skill,
+    SkillCategory,
     SkillCreateSchema,
-    SkillExecuteSchema,
-    SkillExecutionResponseSchema,
-    SkillLanguage,
-    SkillParameter,
     SkillResponseSchema,
     SkillUpdateSchema,
-)
-from app.services.skill_execution_service import (
-    SkillExecutionService,
+    SkillContentResponse,
+    SkillExecutionResponseSchema,
 )
 from app.utils.id_generator import generate_id
 
@@ -34,51 +38,84 @@ logger = get_logger(__name__)
 
 router = APIRouter(prefix="/skills", tags=["skills"])
 
+SKILLS_BASE_PATH = Path("/app/skills")
+
 
 @router.get("", response_model=list[SkillResponseSchema])
 async def list_skills(
     public_only: bool = False,
     official_only: bool = False,
     search: str | None = None,
-    language: SkillLanguage | None = None,
+    category: SkillCategory | None = None,
     db: Session = Depends(get_session),
-    current_user=Depends(get_current_user),
 ):
     """
-    List available skills.
-
-    Returns public skills and user's own skills.
+    List available skills from filesystem.
     """
-    query = db.query(Skill)
+    skills = []
 
-    # Filter by visibility
-    if public_only:
-        query = query.filter(Skill.is_public == True)
-    else:
-        # Show public skills + user's own skills
-        query = query.filter(
-            or_(
-                Skill.is_public == True,
-                Skill.created_by == current_user.id
-                if hasattr(current_user, "id")
-                else True,
-            )
-        )
+    if not SKILLS_BASE_PATH.exists():
+        return []
 
-    if official_only:
-        query = query.filter(Skill.is_official == True)
+    for skill_dir in SKILLS_BASE_PATH.iterdir():
+        if not skill_dir.is_dir():
+            continue
 
-    if language:
-        query = query.filter(Skill.language == language)
+        skill_md = skill_dir / "SKILL.md"
+        if not skill_md.exists():
+            continue
 
-    if search:
-        search_filter = f"%{search}%"
-        query = query.filter(
-            or_(Skill.name.ilike(search_filter), Skill.description.ilike(search_filter))
-        )
+        try:
+            content = skill_md.read_text()
+            frontmatter = _parse_frontmatter(content)
 
-    skills = query.order_by(Skill.usage_count.desc()).all()
-    return skills
+            skill_data = {
+                "id": skill_dir.name,
+                "name": frontmatter.get("name", skill_dir.name),
+                "description": frontmatter.get("description", ""),
+                "category": frontmatter.get("category", "custom"),
+                "triggers": frontmatter.get("triggers", []),
+                "icon": frontmatter.get("icon", "📦"),
+                "created_by": frontmatter.get("author"),
+                "is_public": True,
+                "is_official": frontmatter.get("official", False),
+                "version": frontmatter.get("version", "1.0.0"),
+                "usage_count": 0,
+                "rating_average": 0,
+                "rating_count": 0,
+                "base_path": str(skill_dir),
+                "has_scripts": (skill_dir / "scripts").exists(),
+                "has_templates": (skill_dir / "templates").exists(),
+                "has_assets": (skill_dir / "assets").exists(),
+                "has_references": (skill_dir / "references").exists(),
+                "created_at": datetime.fromtimestamp(skill_dir.stat().st_ctime),
+                "updated_at": datetime.fromtimestamp(skill_dir.stat().st_mtime),
+            }
+
+            if category and skill_data["category"] != category.value:
+                continue
+
+            if search:
+                search_lower = search.lower()
+                if (
+                    search_lower not in skill_data["name"].lower()
+                    and search_lower not in skill_data["description"].lower()
+                ):
+                    continue
+
+            if official_only and not skill_data["is_official"]:
+                continue
+
+            if public_only and not skill_data["is_public"]:
+                continue
+
+            skills.append(skill_data)
+
+        except Exception as e:
+            logger.warning(f"Failed to read skill {skill_dir.name}: {e}")
+            continue
+
+    return sorted(skills, key=lambda x: x["usage_count"], reverse=True)
 
 
 @router.post(
@@ -86,456 +123,437 @@ async def list_skills(
 )
 async def create_skill(
     skill_data: SkillCreateSchema,
-    db: Session = Depends(get_session),
     current_user=Depends(get_current_user),
 ):
-    """Create a new skill."""
+    """Create a new skill directory with SKILL.md file."""
 
-    # Validate code before creating
-    execution_service = SkillExecutionService(db)
-    try:
-        execution_service.validate_code(skill_data.code, skill_data.language)
-    except Exception as e:
+    skill_id = skill_data.id
+    skill_path = SKILLS_BASE_PATH / skill_id
+
+    if skill_path.exists():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Code validation failed: {str(e)}",
+            detail=f"Skill '{skill_id}' already exists",
         )
 
-    # Create skill
-    skill = Skill(
-        id=generate_id(),
-        name=skill_data.name,
-        description=skill_data.description,
-        code=skill_data.code,
-        language=skill_data.language,
-        created_by=current_user.id if hasattr(current_user, "id") else None,
-        is_public=skill_data.is_public,
-        version="1.0.0",
-    )
+    try:
+        skill_path.mkdir(parents=True, exist_ok=True)
+        (skill_path / "scripts").mkdir(exist_ok=True)
+        (skill_path / "templates").mkdir(exist_ok=True)
+        (skill_path / "assets").mkdir(exist_ok=True)
+        (skill_path / "references").mkdir(exist_ok=True)
 
-    db.add(skill)
-    db.flush()  # Get skill.id
-
-    # Create parameters
-    for param_data in skill_data.parameters:
-        param = SkillParameter(
-            id=generate_id(),
-            skill_id=skill.id,
-            name=param_data.name,
-            param_type=param_data.param_type,
-            description=param_data.description,
-            required=param_data.required,
-            default_value=param_data.default_value,
+        skill_content = _generate_skill_md(
+            skill_id=skill_id,
+            name=skill_data.name,
+            description=skill_data.description or "",
+            category=skill_data.category.value,
+            icon=skill_data.icon,
+            triggers=skill_data.triggers,
+            author=current_user.id if hasattr(current_user, "id") else "unknown",
         )
-        db.add(param)
 
-    db.commit()
-    db.refresh(skill)
+        (skill_path / "SKILL.md").write_text(skill_content)
 
-    logger.info(f"Created skill: {skill.name} (id: {skill.id})")
-    return skill
+        logger.info(f"Created skill: {skill_id}")
+
+        return {
+            "id": skill_id,
+            "name": skill_data.name,
+            "description": skill_data.description,
+            "category": skill_data.category,
+            "triggers": skill_data.triggers,
+            "icon": skill_data.icon,
+            "created_by": current_user.id if hasattr(current_user, "id") else None,
+            "is_public": skill_data.is_public,
+            "is_official": False,
+            "version": "1.0.0",
+            "usage_count": 0,
+            "rating_average": 0,
+            "rating_count": 0,
+            "base_path": str(skill_path),
+            "has_scripts": True,
+            "has_templates": True,
+            "has_assets": True,
+            "has_references": True,
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow(),
+        }
+
+    except Exception as e:
+        if skill_path.exists():
+            shutil.rmtree(skill_path, ignore_errors=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create skill: {str(e)}",
+        )
 
 
-@router.get("/{skill_id}", response_model=SkillResponseSchema)
+@router.get("/{skill_id}", response_model=SkillContentResponse)
 async def get_skill(
     skill_id: str,
-    db: Session = Depends(get_session),
     current_user=Depends(get_current_user),
 ):
-    """Get skill details."""
-    skill = db.query(Skill).filter(Skill.id == skill_id).first()
+    """Get skill content including full SKILL.md and file list."""
 
-    if not skill:
+    skill_path = SKILLS_BASE_PATH / skill_id
+    skill_md = skill_path / "SKILL.md"
+
+    if not skill_md.exists():
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Skill not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Skill not found",
         )
 
-    # Hide code if not owner and not public
-    if not skill.is_public:
-        if not hasattr(current_user, "id") or skill.created_by != current_user.id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You don't have permission to view this skill",
-            )
+    try:
+        content = skill_md.read_text()
+        frontmatter = _parse_frontmatter(content)
 
-    return skill
+        files = []
+        for root, dirs, filenames in os.walk(skill_path):
+            for filename in filenames:
+                filepath = Path(root) / filename
+                rel_path = filepath.relative_to(skill_path)
+                files.append(
+                    {
+                        "path": str(rel_path),
+                        "type": "file",
+                    }
+                )
+
+        return {
+            "id": skill_id,
+            "name": frontmatter.get("name", skill_id),
+            "description": frontmatter.get("description", ""),
+            "category": frontmatter.get("category", "custom"),
+            "triggers": frontmatter.get("triggers", []),
+            "icon": frontmatter.get("icon", "📦"),
+            "content": content,
+            "metadata": frontmatter,
+            "files": files,
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to read skill: {str(e)}",
+        )
 
 
 @router.put("/{skill_id}", response_model=SkillResponseSchema)
 async def update_skill(
     skill_id: str,
     skill_data: SkillUpdateSchema,
-    db: Session = Depends(get_session),
     current_user=Depends(get_current_user),
 ):
-    """Update a skill."""
-    skill = db.query(Skill).filter(Skill.id == skill_id).first()
+    """Update skill metadata and SKILL.md frontmatter."""
 
-    if not skill:
+    skill_path = SKILLS_BASE_PATH / skill_id
+    skill_md = skill_path / "SKILL.md"
+
+    if not skill_md.exists():
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Skill not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Skill not found",
         )
 
-    # Check ownership
-    if skill.created_by != current_user.id if hasattr(current_user, "id") else True:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only update your own skills",
+    try:
+        content = skill_md.read_text()
+        frontmatter = _parse_frontmatter(content)
+        body = _extract_body(content)
+
+        if skill_data.name:
+            frontmatter["name"] = skill_data.name
+        if skill_data.description is not None:
+            frontmatter["description"] = skill_data.description
+        if skill_data.category:
+            frontmatter["category"] = skill_data.category.value
+        if skill_data.icon:
+            frontmatter["icon"] = skill_data.icon
+        if skill_data.triggers is not None:
+            frontmatter["triggers"] = skill_data.triggers
+        if skill_data.version:
+            frontmatter["version"] = skill_data.version
+
+        new_content = _generate_skill_md(
+            skill_id=skill_id,
+            name=frontmatter.get("name", skill_id),
+            description=frontmatter.get("description", ""),
+            category=frontmatter.get("category", "custom"),
+            icon=frontmatter.get("icon", "📦"),
+            triggers=frontmatter.get("triggers", []),
+            author=frontmatter.get("author", "unknown"),
+            body=body,
+            version=frontmatter.get("version", "1.0.0"),
         )
 
-    # Validate new code if provided
-    if skill_data.code:
-        execution_service = SkillExecutionService(db)
-        try:
-            execution_service.validate_code(skill_data.code, skill.language)
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Code validation failed: {str(e)}",
-            )
-        skill.code = skill_data.code
+        skill_md.write_text(new_content)
 
-    # Update fields
-    if skill_data.name:
-        skill.name = skill_data.name
-    if skill_data.description is not None:
-        skill.description = skill_data.description
-    if skill_data.is_public is not None:
-        skill.is_public = skill_data.is_public
+        return {
+            "id": skill_id,
+            "name": frontmatter.get("name", skill_id),
+            "description": frontmatter.get("description", ""),
+            "category": frontmatter.get("category", "custom"),
+            "triggers": frontmatter.get("triggers", []),
+            "icon": frontmatter.get("icon", "📦"),
+            "created_by": frontmatter.get("author"),
+            "is_public": True,
+            "is_official": frontmatter.get("official", False),
+            "version": frontmatter.get("version", "1.0.0"),
+            "usage_count": 0,
+            "rating_average": 0,
+            "rating_count": 0,
+            "base_path": str(skill_path),
+            "has_scripts": (skill_path / "scripts").exists(),
+            "has_templates": (skill_path / "templates").exists(),
+            "has_assets": (skill_path / "assets").exists(),
+            "has_references": (skill_path / "references").exists(),
+            "created_at": datetime.fromtimestamp(skill_path.stat().st_ctime),
+            "updated_at": datetime.utcnow(),
+        }
 
-    # Update parameters if provided
-    if skill_data.parameters is not None:
-        # Remove old parameters
-        db.query(SkillParameter).filter(SkillParameter.skill_id == skill_id).delete()
-
-        # Add new parameters
-        for param_data in skill_data.parameters:
-            param = SkillParameter(
-                id=generate_id(),
-                skill_id=skill.id,
-                name=param_data.name,
-                param_type=param_data.param_type,
-                description=param_data.description,
-                required=param_data.required,
-                default_value=param_data.default_value,
-            )
-            db.add(param)
-
-    # Increment version
-    version_parts = skill.version.split(".")
-    version_parts[-1] = str(int(version_parts[-1]) + 1)
-    skill.version = ".".join(version_parts)
-
-    db.commit()
-    db.refresh(skill)
-
-    logger.info(f"Updated skill: {skill.name} (id: {skill.id})")
-    return skill
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update skill: {str(e)}",
+        )
 
 
 @router.delete("/{skill_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_skill(
     skill_id: str,
-    db: Session = Depends(get_session),
     current_user=Depends(get_current_user),
 ):
-    """Delete a skill."""
-    skill = db.query(Skill).filter(Skill.id == skill_id).first()
+    """Delete a skill directory."""
 
-    if not skill:
+    skill_path = SKILLS_BASE_PATH / skill_id
+
+    if not skill_path.exists():
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Skill not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Skill not found",
         )
 
-    # Check ownership or admin
-    if skill.created_by != current_user.id if hasattr(current_user, "id") else True:
+    try:
+        shutil.rmtree(skill_path)
+        logger.info(f"Deleted skill: {skill_id}")
+    except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only delete your own skills",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete skill: {str(e)}",
         )
 
-    db.delete(skill)
-    db.commit()
 
-    logger.info(f"Deleted skill: {skill_id}")
+@router.get("/{skill_id}/files/{path:path}")
+async def get_skill_file(
+    skill_id: str,
+    path: str,
+):
+    """Get a file from within a skill directory."""
+
+    skill_path = SKILLS_BASE_PATH / skill_id / path
+
+    if not skill_path.exists() or not skill_path.is_file():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="File not found",
+        )
+
+    return {"path": str(skill_path), "content": skill_path.read_text()}
 
 
-@router.post("/{skill_id}/execute", response_model=SkillExecutionResponseSchema)
+@router.post("/{skill_id}/files/{path:path}")
+async def create_skill_file(
+    skill_id: str,
+    path: str,
+    content: str,
+):
+    """Create or update a file within a skill directory."""
+
+    skill_path = SKILLS_BASE_PATH / skill_id
+
+    if not skill_path.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Skill not found",
+        )
+
+    file_path = skill_path / path
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    file_path.write_text(content)
+
+    return {"path": str(file_path), "created": True}
+
+
+@router.post("/{skill_id}/execute")
 async def execute_skill(
     skill_id: str,
-    execute_data: SkillExecuteSchema,
+    parameters: dict[str, Any] | None = None,
+    timeout: int = 30,
+    agent_id: str | None = None,
+    task_id: str | None = None,
     db: Session = Depends(get_session),
-    current_user=Depends(get_current_user),
 ):
     """
     Execute a skill with given parameters.
 
-    This is primarily for testing skills during development.
+    The skill must have an executable code block (Python or JavaScript).
+    Execution is sandboxed with timeout and security validation.
     """
-    skill = db.query(Skill).filter(Skill.id == skill_id).first()
+    from dataclasses import dataclass
+    from enum import Enum
 
-    if not skill:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Skill not found"
-        )
+    class SkillLanguageEnum(str, Enum):
+        PYTHON = "python"
+        JAVASCRIPT = "javascript"
 
-    # Check permission
-    if not skill.is_public:
-        if not hasattr(current_user, "id") or skill.created_by != current_user.id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You don't have permission to execute this skill",
-            )
+    @dataclass
+    class RuntimeSkill:
+        """Runtime skill object for execution (not stored in DB)."""
 
-    # Execute
-    execution_service = SkillExecutionService(db)
-    result = await execution_service.execute_skill(
-        skill=skill,
-        parameters=execute_data.parameters,
-        agent_id=current_user.id if hasattr(current_user, "id") else None,
-        timeout=execute_data.timeout,
-    )
+        id: str
+        name: str
+        description: str
+        code: str
+        language: Any
+        metadata: dict
 
-    return result
+    skill_path = SKILLS_BASE_PATH / skill_id
+    skill_md = skill_path / "SKILL.md"
 
-
-# Agent-Skill Assignment Endpoints
-
-
-@router.get("/agent/{agent_id}/skills", response_model=list[AgentSkillResponseSchema])
-async def list_agent_skills(
-    agent_id: str,
-    db: Session = Depends(get_session),
-    current_user=Depends(get_current_user),
-):
-    """List skills assigned to an agent."""
-    # Verify agent exists
-    agent = db.query(Agent).filter(Agent.id == agent_id).first()
-    if not agent:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found"
-        )
-
-    agent_skills = db.query(AgentSkill).filter(AgentSkill.agent_id == agent_id).all()
-
-    # Enrich with skill names
-    result = []
-    for ag in agent_skills:
-        skill = db.query(Skill).filter(Skill.id == ag.skill_id).first()
-        if skill:
-            result.append(
-                {
-                    "id": ag.id,
-                    "agent_id": ag.agent_id,
-                    "skill_id": ag.skill_id,
-                    "skill_name": skill.name,
-                    "skill_description": skill.description,
-                    "is_enabled": ag.is_enabled,
-                    "permission_level": ag.permission_level,
-                    "use_count": ag.use_count,
-                    "last_used_at": ag.last_used_at,
-                    "config": ag.config,
-                }
-            )
-
-    return result
-
-
-@router.post("/agent/{agent_id}/skills", response_model=AgentSkillResponseSchema)
-async def assign_skill_to_agent(
-    agent_id: str,
-    assign_data: AgentSkillAssignSchema,
-    db: Session = Depends(get_session),
-    current_user=Depends(get_current_user),
-):
-    """Assign a skill to an agent."""
-    # Verify agent exists
-    agent = db.query(Agent).filter(Agent.id == agent_id).first()
-    if not agent:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found"
-        )
-
-    # Verify skill exists
-    skill = db.query(Skill).filter(Skill.id == assign_data.skill_id).first()
-    if not skill:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Skill not found"
-        )
-
-    # Check if already assigned
-    existing = (
-        db.query(AgentSkill)
-        .filter(
-            and_(
-                AgentSkill.agent_id == agent_id,
-                AgentSkill.skill_id == assign_data.skill_id,
-            )
-        )
-        .first()
-    )
-
-    if existing:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Skill already assigned to this agent",
-        )
-
-    # Create assignment
-    agent_skill = AgentSkill(
-        id=generate_id(),
-        agent_id=agent_id,
-        skill_id=assign_data.skill_id,
-        config=assign_data.config,
-        permission_level=assign_data.permission_level,
-        is_enabled=True,
-    )
-
-    db.add(agent_skill)
-    db.commit()
-    db.refresh(agent_skill)
-
-    logger.info(f"Assigned skill {skill.name} to agent {agent_id}")
-
-    return {
-        "id": agent_skill.id,
-        "agent_id": agent_skill.agent_id,
-        "skill_id": agent_skill.skill_id,
-        "skill_name": skill.name,
-        "skill_description": skill.description,
-        "is_enabled": agent_skill.is_enabled,
-        "permission_level": agent_skill.permission_level,
-        "use_count": agent_skill.use_count,
-        "last_used_at": agent_skill.last_used_at,
-        "config": agent_skill.config,
-    }
-
-
-@router.put(
-    "/agent/{agent_id}/skills/{agent_skill_id}", response_model=AgentSkillResponseSchema
-)
-async def update_agent_skill(
-    agent_id: str,
-    agent_skill_id: str,
-    updates: AgentSkillAssignSchema,
-    db: Session = Depends(get_session),
-    current_user=Depends(get_current_user),
-):
-    """Update an agent's skill assignment."""
-    agent_skill = (
-        db.query(AgentSkill)
-        .filter(and_(AgentSkill.id == agent_skill_id, AgentSkill.agent_id == agent_id))
-        .first()
-    )
-
-    if not agent_skill:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Skill assignment not found"
-        )
-
-    agent_skill.config = updates.config
-    agent_skill.permission_level = updates.permission_level
-
-    db.commit()
-    db.refresh(agent_skill)
-
-    skill = db.query(Skill).filter(Skill.id == agent_skill.skill_id).first()
-
-    return {
-        "id": agent_skill.id,
-        "agent_id": agent_skill.agent_id,
-        "skill_id": agent_skill.skill_id,
-        "skill_name": skill.name if skill else "Unknown",
-        "skill_description": skill.description if skill else None,
-        "is_enabled": agent_skill.is_enabled,
-        "permission_level": agent_skill.permission_level,
-        "use_count": agent_skill.use_count,
-        "last_used_at": agent_skill.last_used_at,
-        "config": agent_skill.config,
-    }
-
-
-@router.delete(
-    "/agent/{agent_id}/skills/{agent_skill_id}", status_code=status.HTTP_204_NO_CONTENT
-)
-async def remove_skill_from_agent(
-    agent_id: str,
-    agent_skill_id: str,
-    db: Session = Depends(get_session),
-    current_user=Depends(get_current_user),
-):
-    """Remove a skill from an agent."""
-    agent_skill = (
-        db.query(AgentSkill)
-        .filter(and_(AgentSkill.id == agent_skill_id, AgentSkill.agent_id == agent_id))
-        .first()
-    )
-
-    if not agent_skill:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Skill assignment not found"
-        )
-
-    db.delete(agent_skill)
-    db.commit()
-
-    logger.info(f"Removed skill {agent_skill_id} from agent {agent_id}")
-
-
-@router.get(
-    "/agent/{agent_id}/skills/{skill_id}/execute",
-    response_model=SkillExecutionResponseSchema,
-)
-async def execute_agent_skill(
-    agent_id: str,
-    skill_id: str,
-    execute_data: SkillExecuteSchema,
-    db: Session = Depends(get_session),
-    current_user=Depends(get_current_user),
-):
-    """
-    Execute a skill on behalf of an agent.
-
-    This is the main endpoint used during task execution.
-    """
-    # Verify agent-skill relationship
-    agent_skill = (
-        db.query(AgentSkill)
-        .filter(and_(AgentSkill.agent_id == agent_id, AgentSkill.skill_id == skill_id))
-        .first()
-    )
-
-    if not agent_skill:
+    if not skill_md.exists():
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Skill not assigned to this agent",
+            detail="Skill not found",
         )
 
-    if not agent_skill.is_enabled:
+    try:
+        content = skill_md.read_text()
+        frontmatter = _parse_frontmatter(content)
+        body = _extract_body(content)
+
+        if not body or len(body.strip()) < 10:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Skill has no executable code",
+            )
+
+        language_str = frontmatter.get("language", "python").lower()
+        if language_str == "python":
+            language = SkillLanguageEnum.PYTHON
+        elif language_str in ("javascript", "js"):
+            language = SkillLanguageEnum.JAVASCRIPT
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Unsupported language: {language_str}. Use 'python' or 'javascript'.",
+            )
+
+        skill = RuntimeSkill(
+            id=skill_id,
+            name=frontmatter.get("name", skill_id),
+            description=frontmatter.get("description", ""),
+            code=body,
+            language=language,
+            metadata=frontmatter,
+        )
+
+        from app.services.skill_execution_service import SkillExecutionService
+
+        service = SkillExecutionService(db)
+
+        result = await service.execute_skill(
+            skill=skill,
+            parameters=parameters or {},
+            agent_id=agent_id,
+            task_id=task_id,
+            timeout=timeout,
+        )
+
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to execute skill {skill_id}: {e}")
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Skill is disabled for this agent",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to execute skill: {str(e)}",
         )
 
-    skill = db.query(Skill).filter(Skill.id == skill_id).first()
 
-    # Merge agent config with execution params
-    merged_params = {**agent_skill.config, **execute_data.parameters}
+# Helper functions
 
-    # Execute
-    execution_service = SkillExecutionService(db)
-    result = await execution_service.execute_skill(
-        skill=skill,
-        parameters=merged_params,
-        agent_id=agent_id,
-        timeout=execute_data.timeout,
-    )
 
-    # Update usage stats
-    if result["success"]:
-        agent_skill.use_count += 1
-        agent_skill.last_used_at = datetime.utcnow()
-        skill.usage_count += 1
-        db.commit()
+def _parse_frontmatter(content: str) -> dict:
+    """Parse YAML frontmatter from markdown content."""
+    import yaml
 
-    return result
+    if not content.startswith("---"):
+        return {}
+
+    parts = content[3:].split("---", 1)
+    if len(parts) < 2:
+        return {}
+
+    try:
+        return yaml.safe_load(parts[0]) or {}
+    except:
+        return {}
+
+
+def _extract_body(content: str) -> str:
+    """Extract body content after frontmatter."""
+    if not content.startswith("---"):
+        return content
+
+    parts = content[3:].split("---", 1)
+    if len(parts) < 2:
+        return ""
+
+    return parts[1].strip()
+
+
+def _generate_skill_md(
+    skill_id: str,
+    name: str,
+    description: str,
+    category: str,
+    icon: str,
+    triggers: list,
+    author: str,
+    body: str = "",
+    version: str = "1.0.0",
+) -> str:
+    """Generate SKILL.md content with frontmatter."""
+    import yaml
+
+    frontmatter = {
+        "name": skill_id,
+        "description": description,
+        "user-invocable": True,
+        "argument-hint": "[task description]",
+        "compatibility": "Universal",
+        "license": "MIT",
+        "metadata": {
+            "author": author,
+            "version": version,
+            "framework": "Qubot",
+            "icon": icon,
+            "role": name,
+            "type": "capability",
+            "category": category,
+            "triggers": triggers,
+        },
+    }
+
+    content = "---\n"
+    content += yaml.dump(frontmatter, default_flow_style=False, allow_unicode=True)
+    content += "---\n\n"
+
+    if body:
+        content += body + "\n\n"
+
+    content += f"# {icon} {name}\n\n{description}\n"
+
+    return content

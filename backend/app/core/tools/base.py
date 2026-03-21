@@ -154,7 +154,7 @@ class BaseTool(ABC):
 
     def _param_to_schema(self, param: ToolParameter) -> dict[str, Any]:
         """Convert ToolParameter to JSON Schema property"""
-        schema = {
+        schema: dict[str, Any] = {
             "type": param.type,
             "description": param.description,
         }

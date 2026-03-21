@@ -9,8 +9,9 @@ import { AgentWizard } from '@/components/wizard/AgentWizard';
 import { PageLoader, ErrorMessage, EmptyState, toast } from '@/components/ui';
 import {
   Plus, User, Cpu, Activity, Users, Settings, Zap, ArrowRight,
-  ShieldCheck, X, Loader2,
+  ShieldCheck, X, Loader2, Home,
 } from 'lucide-react';
+import Link from 'next/link';
 import { Agent, Task } from '@/types';
 
 // ─── Assign Task Modal ────────────────────────────────────────────────────────
@@ -305,11 +306,17 @@ export default function AgentsPage() {
 
       {/* Header */}
       <div className="flex items-center justify-between mb-8 relative z-10">
-        <div>
-          <h1 className="text-4xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 tracking-tight">
-            Agent Dashboard
-          </h1>
-          <p className="text-slate-400 mt-2 font-medium">Manage and deploy your autonomous AI workforce</p>
+        <div className="flex items-center gap-4">
+          <Link href="/dashboard" className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white transition-all">
+            <Home className="w-4 h-4" />
+            <span className="text-sm font-medium">Office</span>
+          </Link>
+          <div>
+            <h1 className="text-4xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 tracking-tight">
+              Agent Dashboard
+            </h1>
+            <p className="text-slate-400 mt-2 font-medium">Manage and deploy your autonomous AI workforce</p>
+          </div>
         </div>
         <button
           onClick={() => setIsWizardOpen(true)}

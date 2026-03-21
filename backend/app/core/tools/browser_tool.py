@@ -261,21 +261,22 @@ class WebBrowserTool(BaseTool):
                     if follow_links:
                         links = []
                         for link in soup.find_all("a", href=True):
-                            href = link["href"]
-                            full_url = urljoin(str(response.url), href)
-                            links.append(
-                                {
-                                    "url": full_url,
-                                    "text": link.get_text(strip=True)[:100],
-                                }
-                            )
+                            href = str(link.get("href", ""))
+                            if href:
+                                full_url = urljoin(str(response.url), href)
+                                links.append(
+                                    {
+                                        "url": full_url,
+                                        "text": str(link.get_text(strip=True))[:100],
+                                    }
+                                )
                         result_data["links"] = links[:100]  # Limit links
 
                     # Extract meta tags
-                    meta_tags = {}
+                    meta_tags: dict[str, str] = {}
                     for meta in soup.find_all("meta"):
-                        name = meta.get("name") or meta.get("property")
-                        content = meta.get("content")
+                        name = str(meta.get("name") or meta.get("property") or "")
+                        content = str(meta.get("content") or "")
                         if name and content:
                             meta_tags[name] = content
                     if meta_tags:

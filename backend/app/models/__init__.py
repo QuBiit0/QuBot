@@ -20,6 +20,7 @@ from .mcp_server import MCPServer
 from .task import Task, TaskEvent
 from .tool import Tool
 from .workflow import Workflow
+from .secret import Secret
 
 __all__ = [
     "Agent",
@@ -45,4 +46,5 @@ __all__ = [
     "IntegrationConfig",
     "MCPServer",
     "Workflow",
+    "Secret",
 ]

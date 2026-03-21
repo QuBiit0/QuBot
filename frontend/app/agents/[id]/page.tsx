@@ -226,6 +226,10 @@ export default function AgentDetailPage() {
 
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-[11px]" style={{ color: 'rgba(255,255,255,0.3)' }}>
+          <Link href="/dashboard" style={{ color: '#6366f1' }} className="hover:underline flex items-center gap-1">
+            <span>🏠</span> Office
+          </Link>
+          <span>/</span>
           <Link href="/agents" style={{ color: 'rgba(255,255,255,0.5)' }} className="hover:underline">Agents</Link>
           <span>/</span>
           <span style={{ color: 'rgba(255,255,255,0.85)' }}>{agent.name}</span>

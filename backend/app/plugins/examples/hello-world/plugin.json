@@ -1,0 +1,24 @@
+{
+    "id": "hello-world",
+    "name": "Hello World",
+    "version": "1.0.0",
+    "description": "Example Qubot plugin demonstrating the plugin system",
+    "author": "Qubot Team",
+    "type": "tool",
+    "dependencies": [],
+    "config_schema": {
+        "type": "object",
+        "properties": {
+            "greeting": {
+                "type": "string",
+                "description": "Custom greeting message",
+                "default": "Hello"
+            },
+            "use_emoji": {
+                "type": "boolean",
+                "description": "Include emoji in greeting",
+                "default": true
+            }
+        }
+    }
+}
