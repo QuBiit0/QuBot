@@ -89,5 +89,8 @@ class AgentTool(SQLModel, table=True):
     assigned_at: datetime = Field(default_factory=datetime.utcnow)
 
     # Relationships
-    agent: Agent | None = Relationship(back_populates="tools")
-    tool: Optional["Tool"] = Relationship(back_populates="agent_assignments")
+    agent: Optional["Agent"] = Relationship(back_populates="tools")
+    tool_id: UUID = Field(foreign_key="tool.id")
+    tool: Optional["Tool"] = Relationship(
+        sa_relationship_kwargs={"foreign_keys": "[AgentTool.tool_id]"}
+    )

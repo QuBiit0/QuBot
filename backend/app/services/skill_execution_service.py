@@ -9,14 +9,22 @@ import asyncio
 import json
 import re
 import time
+from enum import Enum
 from typing import Any
 
 from sqlalchemy.orm import Session
 
 from app.core.logging import get_logger
-from app.models.skill import Skill, SkillExecutionLog, SkillLanguage
+from app.models.skill import SkillExecutionLog
 
 logger = get_logger(__name__)
+
+
+class SkillLanguage(str, Enum):
+    """Supported programming languages for skill execution."""
+
+    PYTHON = "python"
+    JAVASCRIPT = "javascript"
 
 
 class SkillExecutionError(Exception):
@@ -159,7 +167,7 @@ class SkillExecutionService:
 
     async def execute_skill(
         self,
-        skill: Skill,
+        skill: Any,
         parameters: dict[str, Any],
         agent_id: str | None = None,
         task_id: str | None = None,
@@ -168,28 +176,36 @@ class SkillExecutionService:
         """
         Execute a skill with given parameters.
 
+        Args:
+            skill: Object with .code and .language attributes (Skill model or RuntimeSkill)
+            parameters: Dict of parameters to pass to the skill
+            agent_id: Optional agent ID for logging
+            task_id: Optional task ID for logging
+            timeout: Execution timeout in seconds
+
         Returns:
             Dict with keys: success, result, error, execution_time_ms
         """
         start_time = time.time()
 
-        try:
-            # Validate code before execution
-            self.validate_code(skill.code, skill.language)
+        skill_code = getattr(skill, "code", "")
+        skill_id = str(getattr(skill, "id", "unknown"))
+        skill_language = getattr(skill, "language", SkillLanguage.PYTHON)
 
-            # Execute based on language
-            if skill.language == SkillLanguage.PYTHON:
-                result = await self._execute_python(skill.code, parameters, timeout)
-            elif skill.language == SkillLanguage.JAVASCRIPT:
-                result = await self._execute_javascript(skill.code, parameters, timeout)
+        try:
+            self.validate_code(skill_code, skill_language)
+
+            if skill_language == SkillLanguage.PYTHON:
+                result = await self._execute_python(skill_code, parameters, timeout)
+            elif skill_language == SkillLanguage.JAVASCRIPT:
+                result = await self._execute_javascript(skill_code, parameters, timeout)
             else:
-                raise SkillExecutionError(f"Unsupported language: {skill.language}")
+                raise SkillExecutionError(f"Unsupported language: {skill_language}")
 
             execution_time = int((time.time() - start_time) * 1000)
 
-            # Log successful execution
             self._log_execution(
-                skill_id=skill.id,
+                skill_id=skill_id,
                 agent_id=agent_id,
                 task_id=task_id,
                 parameters=parameters,
@@ -210,7 +226,7 @@ class SkillExecutionService:
             error_msg = f"Skill execution timed out after {timeout} seconds"
 
             self._log_execution(
-                skill_id=skill.id,
+                skill_id=skill_id,
                 agent_id=agent_id,
                 task_id=task_id,
                 parameters=parameters,
@@ -231,7 +247,7 @@ class SkillExecutionService:
             error_msg = str(e)
 
             self._log_execution(
-                skill_id=skill.id,
+                skill_id=skill_id,
                 agent_id=agent_id,
                 task_id=task_id,
                 parameters=parameters,
@@ -374,7 +390,6 @@ if (typeof main === 'function') {{
             if proc.returncode != 0:
                 raise SkillExecutionError(f"JS Error: {stderr.decode()}")
 
-            # Parse result
             output = stdout.decode()
             for line in output.split("\n"):
                 if line.startswith("__RESULT__:"):
@@ -384,10 +399,12 @@ if (typeof main === 'function') {{
             return None
 
         except TimeoutError:
-            proc.kill()
+            if "proc" in locals():
+                proc.kill()
             raise SkillTimeoutError(f"Execution exceeded {timeout} seconds")
         finally:
-            os.unlink(temp_file)
+            if "temp_file" in locals():
+                os.unlink(temp_file)
 
     def _log_execution(
         self,

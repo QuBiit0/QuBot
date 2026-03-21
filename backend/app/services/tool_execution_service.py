@@ -60,7 +60,9 @@ class ToolExecutionService:
         disabled_result = await self.session.execute(
             select(IntegrationConfig).where(IntegrationConfig.enabled == False)  # noqa: E712
         )
-        disabled_names: set[str] = {r.tool_name for r in disabled_result.scalars().all()}
+        disabled_names: set[str] = {
+            r.tool_name for r in disabled_result.scalars().all()
+        }
 
         # 2. Built-in tools
         definitions: list[ToolDefinition] = []
@@ -99,7 +101,9 @@ class ToolExecutionService:
                 else:
                     parameters = {
                         "type": "object",
-                        "properties": raw_schema if isinstance(raw_schema, dict) else {},
+                        "properties": raw_schema
+                        if isinstance(raw_schema, dict)
+                        else {},
                     }
                 definitions.append(
                     ToolDefinition(
@@ -147,13 +151,56 @@ class ToolExecutionService:
         task_id: UUID | None = None,
     ) -> ToolResult:
         """Execute a built-in tool by name."""
+
+        # Check tool profile permissions
+        if agent_id:
+            from app.main import get_tool_profile_service
+
+            profile_service = get_tool_profile_service()
+            if profile_service:
+                config = profile_service.get_profile_config(agent_id)
+                if config.deny_list and tool_name in config.deny_list:
+                    return ToolResult(
+                        success=False,
+                        error=f"Tool '{tool_name}' is denied for this agent",
+                    )
+                if (
+                    config.allow_list
+                    and "*" not in config.allow_list
+                    and tool_name not in config.allow_list
+                ):
+                    return ToolResult(
+                        success=False,
+                        error=f"Tool '{tool_name}' is not in agent's allowed tools",
+                    )
+
         tool = self.tool_registry.get(tool_name)
         if not tool:
             return ToolResult(success=False, error=f"Tool not found: {tool_name}")
 
         is_valid, error = tool.validate_params(params)
         if not is_valid:
-            return ToolResult(success=False, error=f"Parameter validation failed: {error}")
+            return ToolResult(
+                success=False, error=f"Parameter validation failed: {error}"
+            )
+
+        # Check for loops
+        if agent_id:
+            from app.main import get_loop_detection_service
+
+            loop_service = get_loop_detection_service()
+            if loop_service:
+                loop_result = loop_service.analyze(agent_id)
+                if loop_result and loop_result.is_loop:
+                    return ToolResult(
+                        success=False,
+                        error=f"Loop detected: {loop_result.message}",
+                        metadata={
+                            "loop_type": loop_result.loop_type.value
+                            if loop_result.loop_type
+                            else None
+                        },
+                    )
 
         start_time = time.time()
         try:
@@ -164,6 +211,17 @@ class ToolExecutionService:
                 error=f"Tool execution error: {str(e)}",
                 execution_time_ms=int((time.time() - start_time) * 1000),
             )
+
+        # Record for loop detection
+        if agent_id:
+            from app.main import get_loop_detection_service
+
+            loop_service = get_loop_detection_service()
+            if loop_service:
+                import hashlib
+
+                output_hash = hashlib.md5(result.to_json().encode()).hexdigest()
+                loop_service.record_tool_call(agent_id, tool_name, params, output_hash)
 
         if task_id:
             await self._log_tool_call(
@@ -268,7 +326,9 @@ class ToolExecutionService:
                     output_data={"result": (result_text or "")[:500]},
                     duration_ms=duration_ms,
                     success=True,
-                    agent_id=agent_id,
+                    agent_id=agent_id
+                    if agent_id
+                    else UUID("00000000-0000-0000-0000-000000000000"),
                 )
 
             return result_text or "(empty response from MCP server)"
@@ -329,7 +389,9 @@ class ToolExecutionService:
             output_data=result.data if result.success else {"error": result.error},
             duration_ms=result.execution_time_ms,
             success=result.success,
-            agent_id=agent_id,
+            agent_id=agent_id
+            if agent_id
+            else UUID("00000000-0000-0000-0000-000000000000"),
         )
 
     # -------------------------------------------------------------------------

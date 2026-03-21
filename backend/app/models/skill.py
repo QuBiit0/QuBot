@@ -1,7 +1,21 @@
 """
-Skill System Models
+Skill System Models (Híbrido)
 
-Inspired by OpenClaw's skills system but with enhanced security and visual management.
+Skills son directorios con SKILL.md + scripts ejecutables.
+- Metadata en BD para queries rápidas
+- Archivos en filesystem para portabilidad
+- Scripts ejecutables para automatización
+
+Estructura:
+  skills/
+  ├── skill-id/
+  │   ├── SKILL.md          # Frontmatter + instrucciones
+  │   ├── scripts/
+  │   │   ├── run.py        # Script principal ejecutable
+  │   │   └── utils.py       # Helpers
+  │   ├── templates/
+  │   ├── assets/
+  │   └── references/
 """
 
 from datetime import datetime
@@ -24,73 +38,66 @@ from sqlalchemy.orm import relationship
 from app.database import Base
 
 
-class SkillLanguage(str, Enum):
-    """Supported languages for skill code."""
+class SkillCategory(str, Enum):
+    """Categorías para organizar skills."""
 
-    PYTHON = "python"
-    JAVASCRIPT = "javascript"
-
-
-class SkillParameter(Base):
-    """Parameter definition for a skill."""
-
-    __tablename__ = "skill_parameters"
-
-    id = Column(String, primary_key=True)
-    skill_id = Column(String, ForeignKey("skills.id", ondelete="CASCADE"))
-    name = Column(String(100), nullable=False)
-    param_type = Column(
-        String(50), nullable=False
-    )  # string, number, boolean, array, object
-    description = Column(Text)
-    required = Column(Boolean, default=True)
-    default_value = Column(JSON)
-
-    skill = relationship("Skill", back_populates="parameters")
+    DEVELOPMENT = "development"
+    DATA = "data"
+    DESIGN = "design"
+    OPERATIONS = "operations"
+    MARKETING = "marketing"
+    RESEARCH = "research"
+    CUSTOM = "custom"
 
 
 class Skill(Base):
     """
-    A skill is a reusable tool that agents can use.
-    Similar to OpenClaw but with version control and permissions.
+    Skill metadata - la ruta al directorio está en filesystem.
+
+    El archivo SKILL.md contiene frontmatter con toda la config
+    pero repetimos ciertos campos en BD para queries rápidas.
     """
 
     __tablename__ = "skills"
 
-    id = Column(String, primary_key=True)
+    id = Column(String, primary_key=True)  # skill-id (kebab-case)
+
+    # Metadata (también en SKILL.md frontmatter)
     name = Column(String(200), nullable=False)
     description = Column(Text)
-    code = Column(Text, nullable=False)  # Python or JS code
-    language = Column(SQLEnum(SkillLanguage), default=SkillLanguage.PYTHON)
+    category = Column(SQLEnum(SkillCategory), default=SkillCategory.CUSTOM)
+    icon = Column(String(50), default="📦")
+    triggers = Column(JSON, default=list)
 
-    # Metadata
+    # Filesystem path
+    base_path = Column(String(500))
+
+    # Ownership & visibility
     created_by = Column(String, ForeignKey("agents.id"))
     is_public = Column(Boolean, default=False)
-    is_official = Column(Boolean, default=False)  # Qubot official skills
+    is_official = Column(Boolean, default=False)
     version = Column(String(20), default="1.0.0")
 
     # Stats
     usage_count = Column(Integer, default=0)
-    rating_average = Column(Integer, default=0)  # 1-5 stars
+    rating_average = Column(Integer, default=0)
     rating_count = Column(Integer, default=0)
 
-    # Relationships
-    parameters = relationship(
-        "SkillParameter", back_populates="skill", cascade="all, delete-orphan"
-    )
-    agent_skills = relationship(
-        "AgentSkill", back_populates="skill", cascade="all, delete-orphan"
-    )
-
+    # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    # Relationships
+    agent_skills = relationship(
+        "AgentSkill", back_populates="skill", cascade="all, delete-orphan"
+    )
+    execution_logs = relationship(
+        "SkillExecutionLog", back_populates="skill", cascade="all, delete-orphan"
+    )
+
 
 class AgentSkill(Base):
-    """
-    Junction table: which skills are assigned to which agents.
-    Includes agent-specific configuration.
-    """
+    """Skills asignados a agentes."""
 
     __tablename__ = "agent_skills"
 
@@ -98,92 +105,85 @@ class AgentSkill(Base):
     agent_id = Column(String, ForeignKey("agents.id", ondelete="CASCADE"))
     skill_id = Column(String, ForeignKey("skills.id", ondelete="CASCADE"))
 
-    # Agent-specific configuration
-    config = Column(JSON, default=dict)  # Parameter overrides
+    config = Column(JSON, default=dict)
     is_enabled = Column(Boolean, default=True)
-    permission_level = Column(
-        String(20), default="READ_WRITE"
-    )  # READ_ONLY, READ_WRITE, DANGEROUS
+    permission_level = Column(String(20), default="READ")
 
-    # Usage tracking
     use_count = Column(Integer, default=0)
     last_used_at = Column(DateTime)
 
-    # Relationships
     agent = relationship("Agent", back_populates="skills")
     skill = relationship("Skill", back_populates="agent_skills")
 
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    __table_args__ = (
-        # Prevent duplicate assignments
-        {"sqlite_autoincrement": True},
-    )
-
 
 class SkillExecutionLog(Base):
-    """Audit log for skill executions."""
+    """Log de ejecuciones de scripts dentro de skills."""
 
     __tablename__ = "skill_execution_logs"
 
     id = Column(String, primary_key=True)
-    skill_id = Column(String, ForeignKey("skills.id"))
+    skill_id = Column(String, ForeignKey("skills.id", ondelete="CASCADE"))
     agent_id = Column(String, ForeignKey("agents.id"))
     task_id = Column(String, ForeignKey("tasks.id"))
 
-    # Execution details
+    # Qué script se ejecutó
+    script_path = Column(String(500))
+    script_language = Column(String(20))  # python, javascript, bash
+
+    # Input/Output
     parameters = Column(JSON)
     result = Column(JSON)
-    error_message = Column(Text)
-    execution_time_ms = Column(Integer)
+    output = Column(Text)  # stdout/stderr
 
-    # Status
+    # Stats
+    execution_time_ms = Column(Integer)
     status = Column(String(20))  # success, error, timeout
+    error_message = Column(Text)
 
     created_at = Column(DateTime, default=datetime.utcnow)
 
+    # Relationships
+    skill = relationship("Skill", back_populates="execution_logs")
 
-# Pydantic schemas for API
+
+# =============================================================================
+# Pydantic Schemas
+# =============================================================================
+
 from typing import Literal
-
 from pydantic import BaseModel, Field
 
 
-class SkillParameterSchema(BaseModel):
-    id: str | None = None
-    name: str
-    param_type: Literal["string", "number", "boolean", "array", "object"]
-    description: str | None = None
-    required: bool = True
-    default_value: Any | None = None
-
-    class Config:
-        from_attributes = True
-
-
 class SkillCreateSchema(BaseModel):
+    id: str = Field(..., pattern=r"^[a-z0-9-]+$")
     name: str = Field(..., min_length=1, max_length=200)
     description: str | None = None
-    code: str = Field(..., min_length=10)
-    language: SkillLanguage = SkillLanguage.PYTHON
+    category: SkillCategory = SkillCategory.CUSTOM
+    icon: str = "📦"
+    triggers: list[str] = []
     is_public: bool = False
-    parameters: list[SkillParameterSchema] = []
 
 
 class SkillUpdateSchema(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=200)
     description: str | None = None
-    code: str | None = Field(None, min_length=10)
+    category: SkillCategory | None = None
+    icon: str | None = None
+    triggers: list[str] | None = None
     is_public: bool | None = None
-    parameters: list[SkillParameterSchema] | None = None
+    version: str | None = None
 
 
 class SkillResponseSchema(BaseModel):
     id: str
     name: str
     description: str | None
-    code: str | None = None  # Only return code if user has access
-    language: SkillLanguage
+    category: SkillCategory
+    icon: str
+    triggers: list[str]
+    base_path: str | None
     created_by: str | None
     is_public: bool
     is_official: bool
@@ -191,7 +191,10 @@ class SkillResponseSchema(BaseModel):
     usage_count: int
     rating_average: int
     rating_count: int
-    parameters: list[SkillParameterSchema]
+    has_scripts: bool = False
+    has_templates: bool = False
+    has_assets: bool = False
+    has_references: bool = False
     created_at: datetime
     updated_at: datetime
 
@@ -199,10 +202,65 @@ class SkillResponseSchema(BaseModel):
         from_attributes = True
 
 
+class SkillContentSchema(BaseModel):
+    """Contenido completo de un skill."""
+
+    id: str
+    name: str
+    description: str | None
+    category: SkillCategory
+    icon: str
+    triggers: list[str]
+    version: str
+
+    # Frontmatter original
+    frontmatter: dict[str, Any]
+
+    # Cuerpo del markdown
+    content: str
+
+    # Lista de archivos
+    files: list[dict[str, str]]
+
+    # Scripts disponibles
+    scripts: list[str]
+
+
+SkillContentResponse = SkillContentSchema
+
+
+class SkillScriptSchema(BaseModel):
+    """Script dentro de un skill."""
+
+    name: str
+    path: str
+    language: str
+    content: str | None = None  # None = solo metadata
+
+
+class SkillExecuteSchema(BaseModel):
+    """Ejecutar un script dentro de un skill."""
+
+    script: str = "run.py"  # Script a ejecutar (default: run.py)
+    parameters: dict[str, Any] = Field(default_factory=dict)
+    timeout: int = 30  # segundos
+
+
+class SkillExecutionResponseSchema(BaseModel):
+    """Resultado de ejecutar un script."""
+
+    success: bool
+    script: str
+    result: Any | None = None
+    output: str | None = None
+    execution_time_ms: int
+    error: str | None = None
+
+
 class AgentSkillAssignSchema(BaseModel):
     skill_id: str
     config: dict[str, Any] = {}
-    permission_level: Literal["READ_ONLY", "READ_WRITE", "DANGEROUS"] = "READ_WRITE"
+    permission_level: Literal["READ", "READ_WRITE"] = "READ"
 
 
 class AgentSkillResponseSchema(BaseModel):
@@ -219,15 +277,3 @@ class AgentSkillResponseSchema(BaseModel):
 
     class Config:
         from_attributes = True
-
-
-class SkillExecuteSchema(BaseModel):
-    parameters: dict[str, Any] = {}
-    timeout: int = 30  # seconds
-
-
-class SkillExecutionResponseSchema(BaseModel):
-    success: bool
-    result: Any | None = None
-    error: str | None = None
-    execution_time_ms: int
