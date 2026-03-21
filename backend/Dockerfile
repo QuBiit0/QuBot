@@ -113,5 +113,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
 # Expose port
 EXPOSE 8000
 
-# Run migrations and start server
-CMD ["sh", "-c", "python -m alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4 --loop uvloop --http httptools"]
+# Run migrations, seed admin user, and start server
+CMD ["sh", "-c", "python -m alembic upgrade head && python scripts/seed_user.py && uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4 --loop uvloop --http httptools"]
