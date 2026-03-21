@@ -306,7 +306,7 @@ export function AgentWizard({ isOpen, onClose, onSuccess, onCreate }: AgentWizar
               <motion.div key="profile" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="max-w-xl mx-auto space-y-6">
                 <div>
                   <h3 className="text-lg font-semibold mb-2">Agent Profile</h3>
-                  <p className="text-slate-400">Personalize your agent's identity</p>
+                  <p className="text-slate-400">Personalize your agent&apos;s identity</p>
                 </div>
                 
                 <div className="space-y-4">

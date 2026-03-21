@@ -4,12 +4,12 @@ import { useState, useEffect } from 'react';
 import {
   Bell, Shield, User, Cpu, Key,
   Wrench, Server, ChevronDown, ChevronRight,
-  Plus, Trash2, RefreshCw,
+  Plus, Trash2, RefreshCw, MessageSquare,
 } from 'lucide-react';
 import { authApi, api, ApiError } from '@/lib/api';
 import type { UserResponse } from '@/lib/api';
 
-type Section = 'profile' | 'security' | 'llm' | 'notifications' | 'apikey' | 'integrations' | 'mcp';
+type Section = 'profile' | 'security' | 'llm' | 'notifications' | 'apikey' | 'integrations' | 'channels' | 'mcp';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -67,15 +67,39 @@ interface MCPServer {
   created_at: string;
 }
 
+interface ChannelConfig {
+  channel_name: string;
+  enabled: boolean;
+  config: Record<string, unknown>;
+  schema: {
+    label: string;
+    description: string;
+    icon: string;
+    category: string;
+    fields: Array<{
+      name: string;
+      label: string;
+      type: 'text' | 'password' | 'number' | 'boolean' | 'select';
+      default?: unknown;
+      env_var?: string;
+      description?: string;
+      required?: boolean;
+      options?: string[];
+    }>;
+  };
+  status: 'configured' | 'unconfigured' | 'optional';
+}
+
 // ── Nav ───────────────────────────────────────────────────────────────────────
 
 const sections: { id: Section; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'profile',       label: 'Profile',         icon: User   },
   { id: 'security',      label: 'Security',        icon: Shield },
   { id: 'llm',           label: 'LLM Configs',     icon: Cpu    },
-  { id: 'notifications', label: 'Notifications',   icon: Bell   },
-  { id: 'apikey',        label: 'API Key',         icon: Key    },
-  { id: 'integrations',  label: 'Integrations',    icon: Wrench },
+  { id: 'notifications', label: 'Notifications',    icon: Bell   },
+  { id: 'apikey',        label: 'API Key',          icon: Key    },
+  { id: 'integrations',  label: 'Tools & Integrations', icon: Wrench },
+  { id: 'channels',      label: 'Channels',         icon: MessageSquare },
   { id: 'mcp',           label: 'MCP Servers',     icon: Server },
 ];
 
@@ -988,6 +1012,208 @@ function McpSection() {
   );
 }
 
+// ── Channels ──────────────────────────────────────────────────────────────────
+
+const CHANNEL_ICONS: Record<string, string> = {
+  discord: '🎮',
+  slack: '💬',
+  telegram: '✈️',
+  whatsapp: '📱',
+  signal: '🔔',
+  teams: '👥',
+  googlechat: '💬',
+  imessage: '🍎',
+  matrix: '🟣',
+  mattermost: '💬',
+  irc: '💬',
+  line: '💚',
+  feishu: '🔵',
+  twitch: '🟣',
+  nostr: '⚡',
+  synology_chat: '💬',
+  zalo: '🔷',
+};
+
+function ChannelCard({ channel }: { channel: ChannelConfig }) {
+  const [expanded, setExpanded] = useState(false);
+  const [fieldVals, setFieldVals] = useState<Record<string, unknown>>(() => ({ ...channel.config }));
+  const [testing, setTesting] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [isError, setIsError] = useState(false);
+
+  const statusColor = channel.status === 'configured' ? '#10b981'
+    : channel.status === 'optional' ? '#f59e0b' : 'rgba(255,255,255,0.25)';
+  const statusLabel = channel.status === 'configured' ? 'Configured'
+    : channel.status === 'optional' ? 'Optional' : 'Not configured';
+
+  const test = async () => {
+    setTesting(true); setMsg(''); setIsError(false);
+    try {
+      const res = await api.post<{ data: { success: boolean; message?: string } }>(
+        `/integrations/channels/${channel.channel_name}/test`, {}
+      );
+      setMsg(res.data.message ?? 'Test passed ✓');
+      setIsError(!res.data.success);
+    } catch (err) {
+      setMsg(err instanceof ApiError ? err.message : 'Test failed');
+      setIsError(true);
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const renderField = (f: typeof channel.schema.fields[0]) => {
+    const val = fieldVals[f.name] ?? f.default ?? '';
+    
+    if (f.type === 'boolean') {
+      return (
+        <label key={f.name} className="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" className="w-4 h-4 accent-indigo-500"
+            checked={Boolean(val)} onChange={e => setFieldVals(p => ({ ...p, [f.name]: e.target.checked }))} />
+          <span className="text-[13px]" style={{ color: 'rgba(255,255,255,0.7)' }}>{f.label}</span>
+        </label>
+      );
+    }
+
+    if (f.type === 'select' && f.options) {
+      return (
+        <div key={f.name}>
+          <Label>{f.label}{f.required && <span style={{ color: '#f43f5e' }}> *</span>}</Label>
+          {f.description && <p className="text-[11px] mb-1.5" style={{ color: 'rgba(255,255,255,0.3)' }}>{f.description}</p>}
+          <select style={inputCls} value={String(val)} onChange={e => setFieldVals(p => ({ ...p, [f.name]: e.target.value }))}>
+            {f.options.map(o => <option key={o} value={o}>{o}</option>)}
+          </select>
+        </div>
+      );
+    }
+
+    return (
+      <div key={f.name}>
+        <Label>{f.label}{f.required && <span style={{ color: '#f43f5e' }}> *</span>}</Label>
+        {f.description && <p className="text-[11px] mb-1.5" style={{ color: 'rgba(255,255,255,0.3)' }}>{f.description}</p>}
+        <input
+          type={f.type === 'password' ? 'password' : f.type === 'number' ? 'number' : 'text'}
+          style={inputCls}
+          value={String(val)}
+          placeholder={f.env_var ? `env: ${f.env_var}` : ''}
+          onChange={e => setFieldVals(p => ({ ...p, [f.name]: f.type === 'number' ? Number(e.target.value) : e.target.value }))}
+        />
+      </div>
+    );
+  };
+
+  return (
+    <div className="rounded-xl overflow-hidden"
+      style={{ border: '1px solid rgba(99,102,241,0.15)', background: 'rgba(99,102,241,0.03)' }}>
+      <div className="flex items-center gap-3 px-4 py-3">
+        <span className="text-2xl leading-none">{CHANNEL_ICONS[channel.channel_name] ?? '💬'}</span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-[13px]" style={{ color: 'rgba(255,255,255,0.88)' }}>{channel.schema.label}</span>
+            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded"
+              style={{ background: 'rgba(99,102,241,0.1)', color: 'rgba(255,255,255,0.35)' }}>
+              {channel.schema.category}
+            </span>
+            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded"
+              style={{ background: `${statusColor}18`, color: statusColor }}>
+              {statusLabel}
+            </span>
+          </div>
+          <div className="text-[11px] mt-0.5 truncate" style={{ color: 'rgba(255,255,255,0.35)' }}>
+            {channel.schema.description}
+          </div>
+        </div>
+        {channel.schema.fields.length > 0 && (
+          <button type="button" onClick={() => setExpanded(s => !s)}
+            className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg"
+            style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.4)' }}>
+            {expanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+          </button>
+        )}
+      </div>
+
+      {expanded && channel.schema.fields.length > 0 && (
+        <div className="border-t px-4 py-4 flex flex-col gap-4"
+          style={{ borderColor: 'rgba(99,102,241,0.12)', background: 'rgba(0,0,0,0.15)' }}>
+          <div className="grid grid-cols-2 gap-4">
+            {channel.schema.fields.map(f => renderField(f))}
+          </div>
+          <Feedback msg={msg} isError={isError} />
+          <button
+            onClick={test}
+            disabled={testing}
+            className="self-start px-4 py-2 text-[13px] font-semibold rounded-lg"
+            style={{ background: 'rgba(16,185,129,0.1)', color: '#10b981', border: '1px solid rgba(16,185,129,0.2)', opacity: testing ? 0.7 : 1 }}>
+            {testing ? 'Testing...' : 'Test Connection'}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ChannelsSection() {
+  const [channels, setChannels] = useState<ChannelConfig[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [filter, setFilter] = useState('');
+
+  useEffect(() => {
+    api.get<{ data: ChannelConfig[] }>('/integrations/channels')
+      .then(r => { setChannels(r.data); setLoading(false); })
+      .catch(e => { setError(e instanceof Error ? e.message : 'Failed to load'); setLoading(false); });
+  }, []);
+
+  const filtered = filter
+    ? channels.filter(c =>
+        c.schema.label.toLowerCase().includes(filter.toLowerCase()) ||
+        c.schema.category.toLowerCase().includes(filter.toLowerCase()))
+    : channels;
+
+  const categories = [...new Set(filtered.map(c => c.schema.category))];
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-[18px] font-semibold shrink-0" style={{ color: 'rgba(255,255,255,0.92)' }}>
+          Communication Channels
+        </h2>
+        <input
+          style={{ ...inputCls, width: 200 }}
+          placeholder="Filter channels..."
+          value={filter}
+          onChange={e => setFilter(e.target.value)}
+        />
+      </div>
+
+      <p className="text-[12px]" style={{ color: 'rgba(255,255,255,0.35)' }}>
+        Connect Qubot to messaging platforms. Set credentials via environment variables or configure here.
+      </p>
+
+      {loading && <div className="text-[13px]" style={{ color: 'rgba(255,255,255,0.35)' }}>Loading channels...</div>}
+      {error && <Feedback msg={error} isError />}
+
+      {categories.map(cat => (
+        <div key={cat} className="space-y-2">
+          <div className="text-[10px] font-bold uppercase tracking-widest"
+            style={{ color: 'rgba(255,255,255,0.25)' }}>
+            {cat}
+          </div>
+          {filtered.filter(c => c.schema.category === cat).map(c => (
+            <ChannelCard key={c.channel_name} channel={c} />
+          ))}
+        </div>
+      ))}
+
+      {!loading && filtered.length === 0 && (
+        <div className="text-center py-8 text-[13px]" style={{ color: 'rgba(255,255,255,0.3)' }}>
+          No channels found.
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
@@ -1000,6 +1226,7 @@ export default function SettingsPage() {
     notifications: <NotificationsSection />,
     apikey:        <ApiKeySection />,
     integrations:  <IntegrationsSection />,
+    channels:      <ChannelsSection />,
     mcp:           <McpSection />,
   };
 

@@ -36,7 +36,7 @@ export function AgentAvatar({
 
   // Idle/working animation
   useEffect(() => {
-    let startTime = Date.now();
+    const startTime = Date.now();
     
     const animate = () => {
       const elapsed = Date.now() - startTime;

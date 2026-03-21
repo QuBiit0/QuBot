@@ -13,6 +13,11 @@ import {
   Zap,
   Store,
   ClipboardList,
+  FileCode,
+  Server,
+  Calendar,
+  Mic,
+  Shield,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -21,8 +26,13 @@ const navItems = [
   { href: '/mission-control', label: 'Mission Control', icon: Kanban },
   { href: '/tasks', label: 'Tasks', icon: ClipboardList },
   { href: '/agents', label: 'Agents', icon: Users },
-  { href: '/chat', label: 'Chat', icon: MessageSquare },
+  { href: '/webchat', label: 'WebChat', icon: MessageSquare },
+  { href: '/calendar', label: 'Calendar', icon: Calendar },
+  { href: '/voice', label: 'Voice', icon: Mic },
+  { href: '/secrets', label: 'Secrets', icon: Shield },
   { href: '/tools', label: 'Tools', icon: Wrench },
+  { href: '/skills', label: 'Skills', icon: FileCode },
+  { href: '/nodes', label: 'Nodes', icon: Server },
   { href: '/marketplace', label: 'Marketplace', icon: Store },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];

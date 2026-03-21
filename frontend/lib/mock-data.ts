@@ -285,8 +285,11 @@ export const mockActivityEvents: ActivityEvent[] = [
 // Initialize stores with mock data
 export function initializeMockData() {
   if (typeof window !== 'undefined') {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { useAgentsStore } = require('@/store/agents.store');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { useTasksStore } = require('@/store/tasks.store');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { useActivityStore } = require('@/store/activity.store');
 
     // Only initialize if stores are empty
