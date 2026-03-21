@@ -5,8 +5,10 @@ import {
   Send, Bot, User, Loader2, Paperclip, Image, FileText, X, 
   MoreVertical, Trash2, Copy, CheckCircle, AlertCircle, 
   ChevronDown, Settings, Zap, MessageSquare, Clock, Plus,
-  PanelRight, Sparkles, Square, Mic, MicOff, Sun, Moon
+  PanelRight, Sparkles, Square, Mic, MicOff, Sun, Moon,
+  Home, Wifi, WifiOff
 } from 'lucide-react';
+import Link from 'next/link';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 
   (process.env.NODE_ENV === 'development' ? 'http://localhost:8000/api/v1' : '/api/v1');
@@ -55,6 +57,7 @@ export default function WebChatPage() {
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState(AGENTS[0]);
+  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
   const [sessions, setSessions] = useState<ChatSession[]>([
     { id: '1', title: 'Project Planning', created_at: new Date(), updated_at: new Date(), message_count: 12 },
     { id: '2', title: 'Code Review', created_at: new Date(), updated_at: new Date(), message_count: 8 },
@@ -75,6 +78,27 @@ export default function WebChatPage() {
   useEffect(() => {
     inputRef.current?.focus();
   }, [selectedAgent]);
+
+  useEffect(() => {
+    const testConnection = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL.replace('/api/v1', '')}/health`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        if (res.ok) {
+          setConnectionStatus('connected');
+        } else {
+          setConnectionStatus('error');
+        }
+      } catch {
+        setConnectionStatus('error');
+      }
+    };
+    testConnection();
+    const interval = setInterval(testConnection, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleSend = useCallback(async () => {
     const text = input.trim();
@@ -143,19 +167,37 @@ export default function WebChatPage() {
       ));
 
     } catch (err) {
-      if ((err as Error).name === 'AbortError') {
+      const error = err as Error;
+      let friendlyMessage = 'Something went wrong. Please try again.';
+      
+      if (error.name === 'AbortError') {
         setMessages(prev => prev.map(m => 
           m.id === assistantId 
             ? { ...m, status: 'done', content: m.content || '[Cancelled]' }
             : m
         ));
-      } else {
-        setMessages(prev => prev.map(m => 
-          m.id === assistantId 
-            ? { ...m, status: 'error', content: (err as Error).message }
-            : m
-        ));
+        return;
       }
+      
+      if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+        friendlyMessage = 'Unable to connect to the server. Please check your internet connection.';
+      } else if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+        friendlyMessage = 'Session expired. Please log in again.';
+      } else if (error.message.includes('403') || error.message.includes('Forbidden')) {
+        friendlyMessage = 'You do not have permission to perform this action.';
+      } else if (error.message.includes('429') || error.message.includes('Too Many')) {
+        friendlyMessage = 'Too many requests. Please wait a moment and try again.';
+      } else if (error.message.includes('500') || error.message.includes('Internal Server')) {
+        friendlyMessage = 'Server error. Our team has been notified. Please try again later.';
+      } else if (error.message.includes('503') || error.message.includes('Service Unavailable')) {
+        friendlyMessage = 'Service temporarily unavailable. Please try again in a few minutes.';
+      }
+      
+      setMessages(prev => prev.map(m => 
+        m.id === assistantId 
+          ? { ...m, status: 'error', content: friendlyMessage }
+          : m
+      ));
     } finally {
       setIsStreaming(false);
     }
@@ -278,22 +320,37 @@ export default function WebChatPage() {
               <PanelRight className="w-4 h-4" style={{ color: darkMode ? 'rgba(255,255,255,0.5)' : '#64748b' }} />
             </button>
             
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: `${selectedAgent?.color ?? '#6366f1'}20` }}>
-                <span style={{ color: selectedAgent?.color ?? '#6366f1' }}>{selectedAgent?.icon ?? '🤖'}</span>
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: `${selectedAgent?.color ?? '#6366f1'}20` }}>
+              <span style={{ color: selectedAgent?.color ?? '#6366f1' }}>{selectedAgent?.icon ?? '🤖'}</span>
+            </div>
+            <div>
+              <div className="text-[13px] font-medium" style={{ color: darkMode ? '#e6edf3' : '#1e293b' }}>
+                {selectedAgent?.name ?? 'Default Agent'}
               </div>
-              <div>
-                <div className="text-[13px] font-medium" style={{ color: darkMode ? '#e6edf3' : '#1e293b' }}>
-                  {selectedAgent?.name ?? 'Default Agent'}
-                </div>
-                <div className="text-[10px]" style={{ color: darkMode ? 'rgba(255,255,255,0.4)' : '#94a3b8' }}>
-                  {isStreaming ? 'Typing...' : 'Ready'}
-                </div>
+              <div className="flex items-center gap-1.5">
+                {connectionStatus === 'connected' ? (
+                  <Wifi className="w-3 h-3" style={{ color: '#22c55e' }} />
+                ) : connectionStatus === 'error' ? (
+                  <WifiOff className="w-3 h-3" style={{ color: '#ef4444' }} />
+                ) : (
+                  <div className="w-3 h-3 rounded-full animate-pulse" style={{ background: '#f59e0b' }} />
+                )}
+                <span className="text-[10px]" style={{ color: darkMode ? 'rgba(255,255,255,0.4)' : '#94a3b8' }}>
+                  {isStreaming ? 'Thinking...' : connectionStatus === 'connected' ? 'Ready' : connectionStatus === 'error' ? 'Connection issue' : 'Connecting...'}
+                </span>
               </div>
             </div>
           </div>
+          
+          <Link href="/dashboard" className="ml-4 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors"
+            style={{ background: darkMode ? 'rgba(255,255,255,0.05)' : '#f1f5f9', color: darkMode ? 'rgba(255,255,255,0.6)' : '#64748b', border: darkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e2e8f0' }}>
+            <Home className="w-3.5 h-3.5" />
+            Office
+          </Link>
+        </div>
 
-          <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2">
             {/* Agent Selector */}
             <div className="relative">
               <select

@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Send, Bot, User, Loader2, Zap, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Send, Bot, User, Loader2, Zap, CheckCircle2, AlertCircle, Home, Wifi, WifiOff } from 'lucide-react';
+import Link from 'next/link';
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ??
@@ -33,12 +34,34 @@ export default function ChatPage() {
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [statusText, setStatusText] = useState('');
+  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
+    const testConnection = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL.replace('/api/v1', '')}/health`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        if (res.ok) {
+          setConnectionStatus('connected');
+        } else {
+          setConnectionStatus('error');
+        }
+      } catch {
+        setConnectionStatus('error');
+      }
+    };
+    testConnection();
+    const interval = setInterval(testConnection, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleSend = useCallback(async () => {
     const text = input.trim();
@@ -156,10 +179,27 @@ export default function ChatPage() {
       );
     } catch (err) {
       if ((err as Error).name === 'AbortError') return;
+      
+      let friendlyMsg = 'Algo salió mal. Por favor, inténtalo de nuevo.';
       const msg = err instanceof Error ? err.message : 'Error desconocido';
+      
+      if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
+        friendlyMsg = 'No se puede conectar al servidor. Verifica tu conexión a internet.';
+      } else if (msg.includes('401') || msg.includes('Unauthorized')) {
+        friendlyMsg = 'Tu sesión expiró. Por favor, inicia sesión de nuevo.';
+      } else if (msg.includes('403') || msg.includes('Forbidden')) {
+        friendlyMsg = 'No tienes permiso para realizar esta acción.';
+      } else if (msg.includes('429') || msg.includes('Too Many')) {
+        friendlyMsg = 'Demasiadas solicitudes. Espera un momento e intenta de nuevo.';
+      } else if (msg.includes('500') || msg.includes('Internal Server')) {
+        friendlyMsg = 'Error del servidor. Intenta de nuevo en unos minutos.';
+      } else if (msg.includes('503') || msg.includes('Service Unavailable')) {
+        friendlyMsg = 'Servicio temporalmente no disponible. Intenta de nuevo en unos minutos.';
+      }
+      
       setMessages((prev) =>
         prev.map((m) =>
-          m.id === assistantId ? { ...m, content: `Error: ${msg}`, status: 'error' } : m,
+          m.id === assistantId ? { ...m, content: friendlyMsg, status: 'error' } : m,
         ),
       );
     } finally {
@@ -182,21 +222,30 @@ export default function ChatPage() {
 
       {/* Header */}
       <div className="flex-none px-6 py-4 border-b border-white/5 z-10 bg-slate-950/70 backdrop-blur-xl">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500/30 to-purple-500/30 border border-blue-500/30 flex items-center justify-center">
-            <Bot className="w-5 h-5 text-blue-400" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500/30 to-purple-500/30 border border-blue-500/30 flex items-center justify-center">
+              <Bot className="w-5 h-5 text-blue-400" />
+            </div>
+            <div>
+              <h1 className="text-lg font-bold text-white">Orquestador</h1>
+              <p className="text-xs text-slate-400 flex items-center gap-1.5">
+                {connectionStatus === 'connected' ? (
+                  <Wifi className="w-3 h-3 text-emerald-500" />
+                ) : connectionStatus === 'error' ? (
+                  <WifiOff className="w-3 h-3 text-red-500" />
+                ) : (
+                  <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                )}
+                {isStreaming ? statusText || 'Procesando...' : 'Listo'}
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-lg font-bold text-white">Orquestador</h1>
-            <p className="text-xs text-slate-400 flex items-center gap-1.5">
-              <span
-                className={`w-1.5 h-1.5 rounded-full ${
-                  isStreaming ? 'bg-blue-400 animate-pulse' : 'bg-emerald-500'
-                }`}
-              />
-              {isStreaming ? statusText || 'Procesando...' : 'Listo'}
-            </p>
-          </div>
+          
+          <Link href="/dashboard" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors bg-slate-800/50 border border-white/10 hover:bg-slate-700/50 text-slate-300">
+            <Home className="w-3.5 h-3.5" />
+            Office
+          </Link>
         </div>
       </div>
 
