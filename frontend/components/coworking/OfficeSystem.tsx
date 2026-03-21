@@ -497,15 +497,17 @@ function PremiumWindows({ width, wallH, t }: { width: number; wallH: number; t: 
 }
 
 function PremiumClock({ x, y, t }: { x: number; y: number; t: ThemeTokens }) {
-  const [time, setTime] = useState(new Date());
+  const [time, setTime] = useState<Date | null>(null);
   useEffect(() => {
+    // Initialize on client side to get correct local time
+    setTime(new Date());
     const id = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(id);
   }, []);
 
-  const hours = time.getHours();
-  const minutes = time.getMinutes();
-  const seconds = time.getSeconds();
+  const hours = time?.getHours() ?? 0;
+  const minutes = time?.getMinutes() ?? 0;
+  const seconds = time?.getSeconds() ?? 0;
   const hourAngle   = ((hours % 12) * 30) + (minutes * 0.5) - 90;
   const minuteAngle = (minutes * 6) - 90;
   const secondAngle = (seconds * 6) - 90;
